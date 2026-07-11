@@ -1,0 +1,189 @@
+"""
+Original seed data for the Reading module question bank.
+All passages and questions are written from scratch for this project.
+"""
+
+SEED_QUESTIONS = [
+    # ---------- MCQ SINGLE ----------
+    {
+        "module": "reading",
+        "q_type": "mcq_single",
+        "difficulty": "easy",
+        "tags": ["environment", "energy"],
+        "title": "Solar Power Adoption",
+        "passage": (
+            "Over the past decade, the cost of solar panels has fallen by more than seventy percent, "
+            "making solar energy one of the cheapest sources of electricity in many parts of the world. "
+            "Governments in South Asia have begun offering subsidies to households that install rooftop "
+            "solar systems, hoping to reduce dependence on imported fuel and ease pressure on aging power "
+            "grids. Even so, adoption remains uneven: wealthier urban households install panels quickly, "
+            "while rural communities often lack access to financing or reliable installation services."
+        ),
+        "content": {
+            "question": "What does the passage identify as the main barrier to solar adoption in rural areas?",
+            "options": [
+                {"id": "A", "text": "Lack of sunlight in rural regions"},
+                {"id": "B", "text": "Limited access to financing and installation services"},
+                {"id": "C", "text": "Government bans on rural solar use"},
+                {"id": "D", "text": "Higher electricity demand in cities"},
+            ],
+        },
+        "correct_answer": {"option": "B"},
+        "explanation": "The passage states rural communities 'often lack access to financing or reliable installation services.'",
+    },
+    {
+        "module": "reading",
+        "q_type": "mcq_single",
+        "difficulty": "medium",
+        "tags": ["business", "workplace"],
+        "title": "Remote Work Productivity",
+        "passage": (
+            "A three-year study tracking over four thousand employees across twelve companies found that "
+            "productivity, measured by completed tasks per week, remained statistically unchanged when staff "
+            "moved from office-based to fully remote work. However, self-reported measures of collaboration "
+            "quality declined noticeably, particularly among teams working on projects requiring frequent "
+            "creative problem-solving. Researchers suggest that while remote work preserves individual output, "
+            "it may quietly erode the informal exchanges that fuel innovation."
+        ),
+        "content": {
+            "question": "According to the study, what aspect of work was most negatively affected by remote arrangements?",
+            "options": [
+                {"id": "A", "text": "Individual task completion"},
+                {"id": "B", "text": "Employee salaries"},
+                {"id": "C", "text": "Collaboration on creative problem-solving"},
+                {"id": "D", "text": "Number of hours worked"},
+            ],
+        },
+        "correct_answer": {"option": "C"},
+        "explanation": "The passage notes collaboration quality declined, especially for creative problem-solving tasks.",
+    },
+    # ---------- MCQ MULTI ----------
+    {
+        "module": "reading",
+        "q_type": "mcq_multi",
+        "difficulty": "medium",
+        "tags": ["health", "science"],
+        "title": "Sleep and Memory",
+        "passage": (
+            "Neuroscientists have long known that sleep plays a role in memory consolidation, but recent "
+            "research clarifies which stages matter most. Deep, slow-wave sleep appears critical for "
+            "transferring factual information from short-term to long-term storage, while REM sleep seems "
+            "more closely tied to consolidating procedural skills, such as playing an instrument or riding a "
+            "bicycle. Interestingly, the studies found no significant link between total sleep duration alone "
+            "and memory performance; two people sleeping the same number of hours can show very different "
+            "recall abilities depending on how much time they spend in each sleep stage."
+        ),
+        "content": {
+            "question": "Which TWO statements are supported by the passage? (Select all that apply)",
+            "options": [
+                {"id": "A", "text": "Slow-wave sleep helps consolidate factual memory."},
+                {"id": "B", "text": "REM sleep is linked to procedural skill consolidation."},
+                {"id": "C", "text": "Total sleep duration alone predicts memory performance."},
+                {"id": "D", "text": "People who sleep the same number of hours always recall equally well."},
+            ],
+        },
+        "correct_answer": {"options": ["A", "B"]},
+        "explanation": "The passage links slow-wave sleep to factual memory and REM sleep to procedural skills, and explicitly rejects C and D.",
+    },
+    # ---------- FILL IN THE BLANKS (drag word) ----------
+    {
+        "module": "reading",
+        "q_type": "fill_blanks",
+        "difficulty": "easy",
+        "tags": ["technology"],
+        "title": "The Rise of Cloud Computing",
+        "passage": (
+            "Cloud computing allows businesses to rent computing power instead of {1} it. This shift has "
+            "made it far {2} for small startups to launch products, since they no longer need to invest "
+            "heavily in physical servers. As demand for a service grows, companies can {3} their resources "
+            "almost instantly, paying only for what they actually use."
+        ),
+        "content": {
+            "blank_count": 3,
+            "word_bank": ["owning", "cheaper", "scale", "expensive", "reduce", "purchasing"],
+        },
+        "correct_answer": {"blanks": {"1": "owning", "2": "cheaper", "3": "scale"}},
+        "explanation": "Context clues: 'rent...instead of {owning}', 'far {cheaper} for small startups', 'can {scale} their resources'.",
+    },
+    {
+        "module": "reading",
+        "q_type": "fill_blanks",
+        "difficulty": "medium",
+        "tags": ["environment"],
+        "title": "Coral Reef Bleaching",
+        "passage": (
+            "When ocean temperatures rise even slightly above normal, coral polyps expel the colourful algae "
+            "living in their tissues, a process known as {1}. Without these algae, the coral loses both its "
+            "colour and a major source of {2}, leaving it vulnerable to disease. If temperatures return to "
+            "normal quickly, reefs can sometimes {3}, but prolonged heat stress often causes permanent damage."
+        ),
+        "content": {
+            "blank_count": 3,
+            "word_bank": ["bleaching", "nutrition", "recover", "erosion", "collapse", "photosynthesis"],
+        },
+        "correct_answer": {"blanks": {"1": "bleaching", "2": "nutrition", "3": "recover"}},
+        "explanation": "The passage defines 'bleaching', links algae loss to 'nutrition', and describes reefs that 'recover' if temperatures normalize.",
+    },
+    # ---------- READING & WRITING FILL IN THE BLANKS (dropdown) ----------
+    {
+        "module": "reading",
+        "q_type": "rw_fill_blanks",
+        "difficulty": "medium",
+        "tags": ["history", "economics"],
+        "title": "The Silk Road's Legacy",
+        "passage": (
+            "For centuries, the network of trade routes known as the Silk Road did more than {1} goods "
+            "between East and West; it also served as a conduit for ideas, religions, and technologies. "
+            "Merchants travelling these routes {2} not only silk and spices but also papermaking techniques "
+            "and astronomical knowledge. Historians now argue that the Silk Road's greatest {3} was not "
+            "economic but cultural, reshaping how distant civilizations understood one another."
+        ),
+        "content": {
+            "blank_count": 3,
+            "dropdown_options": {
+                "1": ["transport", "transported", "transports", "transporting"],
+                "2": ["carry", "carried", "carries", "carrying"],
+                "3": ["contribution", "contributes", "contributed", "contributing"],
+            },
+        },
+        "correct_answer": {"blanks": {"1": "transport", "2": "carried", "3": "contribution"}},
+        "explanation": "Grammar and meaning: 'did more than transport', past-tense narrative 'carried', and noun form 'greatest contribution'.",
+    },
+    # ---------- RE-ORDER PARAGRAPHS ----------
+    {
+        "module": "reading",
+        "q_type": "reorder",
+        "difficulty": "hard",
+        "tags": ["science", "history"],
+        "title": "The Discovery of Penicillin",
+        "passage": None,
+        "content": {
+            "paragraphs": [
+                {"id": "P1", "text": "In 1928, Alexander Fleming returned from a holiday to find that mould had contaminated one of his bacterial culture plates."},
+                {"id": "P2", "text": "Rather than discarding it immediately, he noticed something unusual: the bacteria surrounding the mould had been destroyed."},
+                {"id": "P3", "text": "This chance observation led Fleming to isolate the substance responsible, which he named penicillin after the Penicillium mould that produced it."},
+                {"id": "P4", "text": "It would take another decade, and the work of chemists Howard Florey and Ernst Chain, before penicillin was purified and mass-produced for medical use."},
+            ],
+        },
+        "correct_answer": {"order": ["P1", "P2", "P3", "P4"]},
+        "explanation": "The paragraphs follow chronological cause and effect: contamination, observation, isolation, then large-scale development.",
+    },
+    {
+        "module": "reading",
+        "q_type": "reorder",
+        "difficulty": "medium",
+        "tags": ["business"],
+        "title": "How a Startup Pivoted",
+        "passage": None,
+        "content": {
+            "paragraphs": [
+                {"id": "P1", "text": "The company originally built software for restaurant table reservations, but growth stalled after the first year."},
+                {"id": "P2", "text": "While reviewing usage data, the founders noticed that many restaurants were using the messaging feature far more than the booking tool itself."},
+                {"id": "P3", "text": "Acting on this insight, the team rebuilt the product around customer messaging, rebranding it as a communication platform for small businesses."},
+                {"id": "P4", "text": "Within eighteen months, the pivot had tripled the company's user base and attracted its first round of institutional funding."},
+            ],
+        },
+        "correct_answer": {"order": ["P1", "P2", "P3", "P4"]},
+        "explanation": "The sequence moves from initial problem, to insight from data, to strategic pivot, to eventual outcome.",
+    },
+]
