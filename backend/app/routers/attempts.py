@@ -6,8 +6,31 @@ from app.database import get_db
 from app.models import Question, Attempt
 from app.schemas import AttemptSubmit, AttemptResult
 from app.scoring import score_attempt
+from app.scoring_writing import score_swt, score_essay
 
 router = APIRouter(prefix="/api/attempts", tags=["attempts"])
+
+WRITING_TYPES = {"swt", "essay"}
+
+
+def _score_writing(question: Question, user_answer: Dict[str, Any]) -> Dict[str, Any]:
+    response_text = user_answer.get("text", "")
+    content = question.content or {}
+    key_points = content.get("key_points", [])
+
+    if question.q_type == "swt":
+        result = score_swt(question.passage or "", key_points, response_text)
+    elif question.q_type == "essay":
+        result = score_essay(question.passage or "", key_points, response_text)
+    else:
+        raise ValueError(f"Unknown writing type: {question.q_type}")
+
+    return {
+        "score": float(result["total"]),
+        "max_score": float(result["max_total"]),
+        "accuracy": result["total"] / result["max_total"] if result["max_total"] else 0.0,
+        "breakdown": result,
+    }
 
 
 @router.post("/submit", response_model=AttemptResult)
@@ -16,7 +39,12 @@ def submit_attempt(payload: AttemptSubmit, db: Session = Depends(get_db)):
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
 
-    result = score_attempt(question.q_type, question.correct_answer, payload.user_answer)
+    if question.q_type in WRITING_TYPES:
+        result = _score_writing(question, payload.user_answer)
+        correct_answer_out = None
+    else:
+        result = score_attempt(question.q_type, question.correct_answer, payload.user_answer)
+        correct_answer_out = question.correct_answer
 
     attempt = Attempt(
         question_id=question.id,
@@ -25,6 +53,7 @@ def submit_attempt(payload: AttemptSubmit, db: Session = Depends(get_db)):
         score=result["score"],
         max_score=result["max_score"],
         accuracy=result["accuracy"],
+        breakdown=result.get("breakdown", {}),
         time_taken_seconds=payload.time_taken_seconds,
     )
     db.add(attempt)
@@ -37,9 +66,9 @@ def submit_attempt(payload: AttemptSubmit, db: Session = Depends(get_db)):
         score=result["score"],
         max_score=result["max_score"],
         accuracy=result["accuracy"],
-        correct_answer=question.correct_answer,
+        correct_answer=correct_answer_out,
         explanation=question.explanation,
-        breakdown=result["breakdown"],
+        breakdown=result.get("breakdown", {}),
     )
 
 
@@ -70,11 +99,7 @@ def get_history(user_id: str = "guest", limit: int = 50, db: Session = Depends(g
 def get_stats(user_id: str = "guest", db: Session = Depends(get_db)):
     attempts = db.query(Attempt).filter(Attempt.user_id == user_id).all()
     if not attempts:
-        return {
-            "total_attempts": 0,
-            "average_accuracy": 0,
-            "by_type": {},
-        }
+        return {"total_attempts": 0, "average_accuracy": 0, "by_type": {}}
 
     by_type: Dict[str, Dict[str, Any]] = {}
     for a in attempts:
