@@ -18,11 +18,6 @@ class QuestionOut(BaseModel):
         from_attributes = True
 
 
-class QuestionWithAnswer(QuestionOut):
-    correct_answer: Dict[str, Any]
-    explanation: str
-
-
 class QuestionCreate(BaseModel):
     module: str
     q_type: str
@@ -31,14 +26,14 @@ class QuestionCreate(BaseModel):
     title: str
     passage: Optional[str] = None
     content: Dict[str, Any]
-    correct_answer: Dict[str, Any]
+    correct_answer: Optional[Dict[str, Any]] = None
     explanation: str = ""
 
 
 class AttemptSubmit(BaseModel):
     question_id: int
     user_id: str = "guest"
-    user_answer: Dict[str, Any]
+    user_answer: Dict[str, Any]     # for writing types: {"text": "..."}
     time_taken_seconds: int = 0
 
 
@@ -48,7 +43,7 @@ class AttemptResult(BaseModel):
     score: float
     max_score: float
     accuracy: float
-    correct_answer: Dict[str, Any]
+    correct_answer: Optional[Dict[str, Any]] = None
     explanation: str
     breakdown: Dict[str, Any] = {}
 
