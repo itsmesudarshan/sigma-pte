@@ -5,10 +5,11 @@ from app.database import Base, engine, SessionLocal
 from app.routers import questions, attempts
 from app.models import Question
 from app.data.seed_questions import SEED_QUESTIONS
+from app.data.seed_writing import SEED_WRITING
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="PTE Prep Platform API", version="0.1.0")
+app = FastAPI(title="Prepwise PTE Prep Platform API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,7 +28,7 @@ def seed_database():
     db = SessionLocal()
     try:
         if db.query(Question).count() == 0:
-            for q in SEED_QUESTIONS:
+            for q in SEED_QUESTIONS + SEED_WRITING:
                 db.add(Question(**q))
             db.commit()
     finally:
@@ -36,7 +37,7 @@ def seed_database():
 
 @app.get("/")
 def root():
-    return {"status": "ok", "service": "PTE Prep Platform API"}
+    return {"status": "ok", "service": "Prepwise PTE Prep Platform API"}
 
 
 @app.get("/api/health")
