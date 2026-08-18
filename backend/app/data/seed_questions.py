@@ -1,10 +1,6 @@
-"""
-Original seed data for the Reading module question bank.
-All passages and questions are written from scratch for this project.
-"""
+"""Original seed data for the Reading module question bank."""
 
 SEED_QUESTIONS = [
-    # ---------- MCQ SINGLE ----------
     {
         "module": "reading",
         "q_type": "mcq_single",
@@ -57,7 +53,6 @@ SEED_QUESTIONS = [
         "correct_answer": {"option": "C"},
         "explanation": "The passage notes collaboration quality declined, especially for creative problem-solving tasks.",
     },
-    # ---------- MCQ MULTI ----------
     {
         "module": "reading",
         "q_type": "mcq_multi",
@@ -85,7 +80,6 @@ SEED_QUESTIONS = [
         "correct_answer": {"options": ["A", "B"]},
         "explanation": "The passage links slow-wave sleep to factual memory and REM sleep to procedural skills, and explicitly rejects C and D.",
     },
-    # ---------- FILL IN THE BLANKS (drag word) ----------
     {
         "module": "reading",
         "q_type": "fill_blanks",
@@ -124,7 +118,6 @@ SEED_QUESTIONS = [
         "correct_answer": {"blanks": {"1": "bleaching", "2": "nutrition", "3": "recover"}},
         "explanation": "The passage defines 'bleaching', links algae loss to 'nutrition', and describes reefs that 'recover' if temperatures normalize.",
     },
-    # ---------- READING & WRITING FILL IN THE BLANKS (dropdown) ----------
     {
         "module": "reading",
         "q_type": "rw_fill_blanks",
@@ -149,7 +142,6 @@ SEED_QUESTIONS = [
         "correct_answer": {"blanks": {"1": "transport", "2": "carried", "3": "contribution"}},
         "explanation": "Grammar and meaning: 'did more than transport', past-tense narrative 'carried', and noun form 'greatest contribution'.",
     },
-    # ---------- RE-ORDER PARAGRAPHS ----------
     {
         "module": "reading",
         "q_type": "reorder",
