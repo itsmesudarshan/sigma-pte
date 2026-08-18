@@ -1,136 +1,114 @@
 """
-Optional AI-assisted scoring for the semantic Writing traits (Content,
-Development/Structure/Coherence, General Linguistic Range) using Groq's
-free-tier API (llama-3.3-70b-versatile — same model already used in
-jodi_makerbot).
+Scoring engine for PTE Academic Reading question types.
 
-This is entirely optional: if GROQ_API_KEY is not set, or the API call
-fails for any reason (network, rate limit, malformed response), every
-function here returns None and the caller falls back to pure heuristic
-scoring. Nothing breaks without a key.
-
-The AI is prompted with Pearson's actual published band descriptors
-(pulled from the official Score Guide) so its judgments are anchored to
-the real rubric rather than a generic "grade this essay" request.
+Verified directly against Pearson's official "PTE Academic Test Taker Score
+Guide" (Part 2: Reading, page 39-40):
+  - Fill in the Blanks (Dropdown / Drag&Drop): +1 per correctly completed blank
+  - Multiple Choice, Multiple Answers: +1 per correct response, -1 per
+    incorrect response chosen, floor at 0
+  - Re-order Paragraph: +1 per correctly ordered adjacent pair
+  - Multiple Choice, Single Answer: correct/incorrect, 1 or 0
 """
 
-import os
-import json
-import re
-from urllib import request as urlrequest, error as urlerror
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.3-70b-versatile"
+from typing import Dict, Any
 
 
-def _call_groq(system_prompt: str, user_prompt: str) -> dict | None:
-    if not GROQ_API_KEY:
-        return None
+def score_mcq_single(correct_answer: Dict[str, Any], user_answer: Dict[str, Any]) -> Dict[str, Any]:
+    correct = correct_answer.get("option")
+    given = user_answer.get("option")
+    is_correct = correct == given
+    score = 1.0 if is_correct else 0.0
+    return {
+        "score": score,
+        "max_score": 1.0,
+        "accuracy": score,
+        "breakdown": {"selected": given, "correct": correct, "is_correct": is_correct},
+    }
 
-    payload = json.dumps({
-        "model": GROQ_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.2,
-        "max_tokens": 400,
-    }).encode("utf-8")
 
-    req = urlrequest.Request(
-        GROQ_URL,
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json",
+def score_mcq_multi(correct_answer: Dict[str, Any], user_answer: Dict[str, Any]) -> Dict[str, Any]:
+    correct_set = set(correct_answer.get("options", []))
+    given_set = set(user_answer.get("options", []))
+
+    correct_selected = correct_set & given_set
+    incorrect_selected = given_set - correct_set
+
+    raw_score = len(correct_selected) - len(incorrect_selected)
+    max_score = len(correct_set)
+    score = max(0, min(raw_score, max_score))
+
+    return {
+        "score": float(score),
+        "max_score": float(max_score),
+        "accuracy": score / max_score if max_score else 0.0,
+        "breakdown": {
+            "correct_selected": list(correct_selected),
+            "incorrect_selected": list(incorrect_selected),
+            "missed": list(correct_set - given_set),
         },
-        method="POST",
-    )
-
-    try:
-        with urlrequest.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        text = data["choices"][0]["message"]["content"]
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if not match:
-            return None
-        return json.loads(match.group(0))
-    except (urlerror.URLError, KeyError, IndexError, json.JSONDecodeError, TimeoutError):
-        return None
+    }
 
 
-SWT_SYSTEM_PROMPT = """You are scoring a PTE Academic "Summarize Written Text" response \
-using Pearson's official Content band descriptors (0-4 scale):
-4 = source text summarised comprehensively, full comprehension, effective paraphrasing, all main ideas synthesized concisely.
-3 = summarised adequately, good comprehension, paraphrasing not always consistent, minor omissions.
-2 = summarised partially, basic comprehension, relies on repeating source excerpts rather than own words.
-1 = relevant but not meaningfully summarised, limited comprehension, disconnected excerpts.
-0 = too limited, no comprehension shown.
+def score_fill_blanks(correct_answer: Dict[str, Any], user_answer: Dict[str, Any]) -> Dict[str, Any]:
+    correct_blanks = correct_answer.get("blanks", {})
+    given_blanks = user_answer.get("blanks", {})
 
-Respond ONLY with JSON: {"content": <0-4 integer>, "reason": "<one short sentence>"}"""
+    max_score = len(correct_blanks)
+    per_blank = {}
+    correct_count = 0
 
+    for key, correct_val in correct_blanks.items():
+        given_val = str(given_blanks.get(key, "")).strip().lower()
+        is_correct = given_val == str(correct_val).strip().lower()
+        per_blank[key] = {"given": given_blanks.get(key, ""), "correct": correct_val, "is_correct": is_correct}
+        if is_correct:
+            correct_count += 1
 
-ESSAY_SYSTEM_PROMPT = """You are scoring a PTE Academic Essay using Pearson's official band \
-descriptors. Score three traits:
-
-CONTENT (0-6): 6=fully addresses prompt in depth with own-words reformulation and specific \
-supporting examples; 5=adequately addresses prompt, persuasive, minor gaps; 4=addresses main \
-point but lacks depth; 3=relevant but doesn't address main points adequately; 2=superficial, \
-generic, or relies on prompt language; 1=incomplete understanding, generic/repetitive; 0=does \
-not deal with prompt.
-
-DEVELOPMENT_STRUCTURE_COHERENCE (0-6): 6=effective logical structure, smooth flow, clear \
-argument developed at length, intro+conclusion+organized paragraphs, varied connectives; \
-5=conventional appropriate structure, clear argument, intro/conclusion/paragraphs present; \
-4=structure mostly present but some elements missing; 3=traces of structure, disconnected \
-ideas, undeveloped position; 2=little recognizable structure, disorganized; 1=disconnected \
-ideas, no hierarchy; 0=no recognizable structure.
-
-GENERAL_LINGUISTIC_RANGE (0-6): 6=varied expression/vocabulary used with ease and precision, \
-no limitations; 5=varied expression throughout, ideas clear; 4=sufficient range for basic \
-ideas, limitations on complex ideas; 3=narrow range, simple expressions repeated; 2=limited \
-vocabulary, compromised communication; 1=highly restricted, ideas generally unclear; 0=meaning \
-not accessible.
-
-Respond ONLY with JSON:
-{"content": <0-6>, "dsc": <0-6>, "linguistic_range": <0-6>, "reason": "<one short sentence>"}"""
+    return {
+        "score": float(correct_count),
+        "max_score": float(max_score),
+        "accuracy": correct_count / max_score if max_score else 0.0,
+        "breakdown": {"per_blank": per_blank},
+    }
 
 
-def ai_score_swt(source_text: str, response: str) -> dict | None:
-    user_prompt = f"SOURCE TEXT:\n{source_text}\n\nSTUDENT SUMMARY:\n{response}"
-    result = _call_groq(SWT_SYSTEM_PROMPT, user_prompt)
-    if not result or "content" not in result:
-        return None
-    try:
-        content = int(result["content"])
-    except (TypeError, ValueError):
-        return None
-    if not 0 <= content <= 4:
-        return None
-    return {"content": content, "reason": result.get("reason", "")}
+def score_reorder(correct_answer: Dict[str, Any], user_answer: Dict[str, Any]) -> Dict[str, Any]:
+    correct_order = correct_answer.get("order", [])
+    given_order = user_answer.get("order", [])
+
+    max_score = max(len(correct_order) - 1, 0)
+    correct_pairs = []
+    score = 0
+
+    correct_pair_set = {
+        (correct_order[i], correct_order[i + 1]) for i in range(len(correct_order) - 1)
+    }
+
+    for i in range(len(given_order) - 1):
+        pair = (given_order[i], given_order[i + 1])
+        if pair in correct_pair_set:
+            score += 1
+            correct_pairs.append(pair)
+
+    return {
+        "score": float(score),
+        "max_score": float(max_score),
+        "accuracy": score / max_score if max_score else 0.0,
+        "breakdown": {"correct_order": correct_order, "given_order": given_order, "correct_adjacent_pairs": correct_pairs},
+    }
 
 
-def ai_score_essay(prompt_text: str, response: str) -> dict | None:
-    user_prompt = f"ESSAY PROMPT:\n{prompt_text}\n\nSTUDENT ESSAY:\n{response}"
-    result = _call_groq(ESSAY_SYSTEM_PROMPT, user_prompt)
-    if not result:
-        return None
-    try:
-        content = int(result["content"])
-        dsc = int(result["dsc"])
-        glr = int(result["linguistic_range"])
-    except (TypeError, ValueError, KeyError):
-        return None
-    if not (0 <= content <= 6 and 0 <= dsc <= 6 and 0 <= glr <= 6):
-        return None
-    return {"content": content, "dsc": dsc, "linguistic_range": glr, "reason": result.get("reason", "")}
+SCORERS = {
+    "mcq_single": score_mcq_single,
+    "mcq_multi": score_mcq_multi,
+    "fill_blanks": score_fill_blanks,
+    "rw_fill_blanks": score_fill_blanks,
+    "reorder": score_reorder,
+}
 
 
-def blend(heuristic_score: int, ai_score: int | None, max_score: int, ai_weight: float = 0.7) -> int:
-    """Blend AI + heuristic, rounding to nearest valid integer band. Falls back
-    to pure heuristic if AI score is unavailable."""
-    if ai_score is None:
-        return heuristic_score
-    blended = ai_weight * ai_score + (1 - ai_weight) * heuristic_score
-    return max(0, min(max_score, round(blended)))
+def score_attempt(q_type: str, correct_answer: Dict[str, Any], user_answer: Dict[str, Any]) -> Dict[str, Any]:
+    scorer = SCORERS.get(q_type)
+    if not scorer:
+        raise ValueError(f"No scorer registered for question type: {q_type}")
+    return scorer(correct_answer, user_answer)
