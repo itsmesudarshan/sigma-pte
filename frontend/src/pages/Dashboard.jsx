@@ -5,14 +5,18 @@ import { api } from '../api/client';
 import ScoreGauge from '../components/ScoreGauge';
 
 const TYPE_LABELS = {
-  rw_fill_blanks: 'R&W Fill Blanks',
-  fill_blanks: 'Fill Blanks',
-  reorder: 'Re-order',
-  mcq_single: 'MCQ Single',
-  mcq_multi: 'MCQ Multi',
-  swt: 'Summarize Text',
-  essay: 'Essay',
+  rw_fill_blanks: 'R&W Fill Blanks', fill_blanks: 'Fill Blanks', reorder: 'Re-order',
+  mcq_single: 'MCQ Single', mcq_multi: 'MCQ Multi', swt: 'Summarize Text', essay: 'Essay',
+  read_aloud: 'Read Aloud', repeat_sentence: 'Repeat Sentence', answer_short_question: 'Short Question',
+  l_mcq_single: 'L. MCQ', l_fill_blanks: 'L. Fill Blanks', select_missing_word: 'Missing Word', write_from_dictation: 'Dictation',
 };
+
+const MODULE_LINKS = [
+  { to: '/reading', label: 'Reading', color: 'var(--ink)' },
+  { to: '/writing', label: 'Writing', color: 'var(--focus)' },
+  { to: '/speaking', label: 'Speaking', color: 'var(--success)' },
+  { to: '/listening', label: 'Listening', color: 'var(--amber)' },
+];
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -25,49 +29,34 @@ export default function Dashboard() {
   }, []);
 
   const chartData = stats
-    ? Object.entries(stats.by_type).map(([type, v]) => ({
-        name: TYPE_LABELS[type] || type,
-        accuracy: Math.round(v.average_accuracy * 100),
-      }))
+    ? Object.entries(stats.by_type).map(([type, v]) => ({ name: TYPE_LABELS[type] || type, accuracy: Math.round(v.average_accuracy * 100) }))
     : [];
 
   return (
     <div>
       <h1 style={{ fontSize: 28, marginBottom: 4 }}>Welcome back</h1>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 28 }}>
-        Here's how your PTE practice is going so far.
-      </p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 28 }}>Here's how your PTE practice is going so far.</p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 20 }}>
         <div style={{ padding: 20, background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', gap: 16 }}>
           <ScoreGauge accuracy={stats?.average_accuracy || 0} size={72} />
           <div>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Overall Accuracy</p>
-            <p className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>
-              {Math.round((stats?.average_accuracy || 0) * 100)}%
-            </p>
+            <p className="mono" style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{Math.round((stats?.average_accuracy || 0) * 100)}%</p>
           </div>
         </div>
-
         <div style={{ padding: 20, background: 'var(--paper-raised)', border: '1px solid var(--line)', borderRadius: 'var(--radius-lg)' }}>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 8 }}>Total Attempts</p>
           <p className="mono" style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)' }}>{stats?.total_attempts ?? '–'}</p>
         </div>
+      </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button
-            onClick={() => navigate('/reading')}
-            style={{ flex: 1, padding: 16, background: 'var(--ink)', color: '#fff', border: 'none', borderRadius: 'var(--radius-lg)', textAlign: 'left' }}
-          >
-            <p style={{ fontSize: 13, fontWeight: 700 }}>Practice Reading →</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 28 }}>
+        {MODULE_LINKS.map((m) => (
+          <button key={m.to} onClick={() => navigate(m.to)} style={{ padding: 16, background: m.color, color: '#fff', border: 'none', borderRadius: 'var(--radius-lg)', textAlign: 'left' }}>
+            <p style={{ fontSize: 13, fontWeight: 700 }}>{m.label} →</p>
           </button>
-          <button
-            onClick={() => navigate('/writing')}
-            style={{ flex: 1, padding: 16, background: 'var(--focus)', color: '#fff', border: 'none', borderRadius: 'var(--radius-lg)', textAlign: 'left' }}
-          >
-            <p style={{ fontSize: 13, fontWeight: 700 }}>Practice Writing →</p>
-          </button>
-        </div>
+        ))}
       </div>
 
       {chartData.length > 0 && (
@@ -76,7 +65,7 @@ export default function Dashboard() {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} domain={[0, 100]} />
               <Tooltip formatter={(v) => `${v}%`} />
               <Bar dataKey="accuracy" fill="#2A5CDB" radius={[6, 6, 0, 0]} />
@@ -90,12 +79,8 @@ export default function Dashboard() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {recent.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No attempts yet — start practicing to see history here.</p>}
           {recent.map((q) => (
-            <button
-              key={q.id}
-              onClick={() => navigate(`/practice/${q.id}`)}
-              style={{ textAlign: 'left', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--line)', background: 'var(--paper-raised)', fontSize: 14 }}
-            >
-              {q.title} <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>· {TYPE_LABELS[q.q_type]}</span>
+            <button key={q.id} onClick={() => navigate(`/practice/${q.id}`)} style={{ textAlign: 'left', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--line)', background: 'var(--paper-raised)', fontSize: 14 }}>
+              {q.title} <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>· {TYPE_LABELS[q.q_type] || q.q_type}</span>
             </button>
           ))}
         </div>
