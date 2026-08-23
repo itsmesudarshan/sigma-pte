@@ -6,14 +6,16 @@ from app.routers import questions, attempts
 from app.models import Question
 from app.data.seed_questions import SEED_QUESTIONS
 from app.data.seed_writing import SEED_WRITING
+from app.data.seed_speaking import SEED_SPEAKING
+from app.data.seed_listening import SEED_LISTENING
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Prepwise PTE Prep Platform API", version="0.2.0")
+app = FastAPI(title="Prepwise PTE Prep Platform API", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten to your frontend URL in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,7 +30,7 @@ def seed_database():
     db = SessionLocal()
     try:
         if db.query(Question).count() == 0:
-            for q in SEED_QUESTIONS + SEED_WRITING:
+            for q in SEED_QUESTIONS + SEED_WRITING + SEED_SPEAKING + SEED_LISTENING:
                 db.add(Question(**q))
             db.commit()
     finally:
