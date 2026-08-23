@@ -4,26 +4,28 @@ from typing import List, Dict, Any
 
 from app.database import get_db
 from app.models import Question, Attempt
-from app.schemas import AttemptSubmit, AttemptResult
 from app.scoring import score_attempt
 from app.scoring_writing import score_swt, score_essay
+from app.scoring_speaking import score_read_aloud_or_repeat, score_answer_short_question
+from app.scoring_listening import score_listening_attempt
+from app.schemas import AttemptSubmit, AttemptResult
 
 router = APIRouter(prefix="/api/attempts", tags=["attempts"])
 
 WRITING_TYPES = {"swt", "essay"}
+SPEAKING_TIMED_TYPES = {"read_aloud", "repeat_sentence"}
+SPEAKING_SHORT_TYPES = {"answer_short_question"}
+LISTENING_TYPES = {"l_mcq_single", "l_mcq_multi", "l_fill_blanks", "highlight_summary", "select_missing_word", "write_from_dictation"}
 
 
 def _score_writing(question: Question, user_answer: Dict[str, Any]) -> Dict[str, Any]:
     response_text = user_answer.get("text", "")
-    content = question.content or {}
-    key_points = content.get("key_points", [])
+    key_points = (question.content or {}).get("key_points", [])
 
     if question.q_type == "swt":
         result = score_swt(question.passage or "", key_points, response_text)
-    elif question.q_type == "essay":
-        result = score_essay(question.passage or "", key_points, response_text)
     else:
-        raise ValueError(f"Unknown writing type: {question.q_type}")
+        result = score_essay(question.passage or "", key_points, response_text)
 
     return {
         "score": float(result["total"]),
@@ -33,15 +35,44 @@ def _score_writing(question: Question, user_answer: Dict[str, Any]) -> Dict[str,
     }
 
 
+def _score_speaking(question: Question, user_answer: Dict[str, Any]) -> Dict[str, Any]:
+    transcript = user_answer.get("transcript", "")
+    duration = user_answer.get("duration_seconds", 0)
+
+    if question.q_type in SPEAKING_TIMED_TYPES:
+        target_text = question.passage or ""
+        result = score_read_aloud_or_repeat(target_text, transcript, duration)
+    else:
+        acceptable = (question.content or {}).get("acceptable_answers", [])
+        result = score_answer_short_question(acceptable, transcript)
+
+    return {
+        "score": float(result["total"]),
+        "max_score": float(result["max_total"]),
+        "accuracy": result["total"] / result["max_total"] if result["max_total"] else 0.0,
+        "breakdown": result,
+    }
+
+
+def _score_listening(question: Question, user_answer: Dict[str, Any]) -> Dict[str, Any]:
+    return score_listening_attempt(question.q_type, question.correct_answer, user_answer)
+
+
 @router.post("/submit", response_model=AttemptResult)
 def submit_attempt(payload: AttemptSubmit, db: Session = Depends(get_db)):
     question = db.query(Question).filter(Question.id == payload.question_id).first()
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
 
+    correct_answer_out = None
+
     if question.q_type in WRITING_TYPES:
         result = _score_writing(question, payload.user_answer)
-        correct_answer_out = None
+    elif question.q_type in SPEAKING_TIMED_TYPES or question.q_type in SPEAKING_SHORT_TYPES:
+        result = _score_speaking(question, payload.user_answer)
+    elif question.q_type in LISTENING_TYPES:
+        result = _score_listening(question, payload.user_answer)
+        correct_answer_out = question.correct_answer
     else:
         result = score_attempt(question.q_type, question.correct_answer, payload.user_answer)
         correct_answer_out = question.correct_answer
@@ -83,13 +114,9 @@ def get_history(user_id: str = "guest", limit: int = 50, db: Session = Depends(g
     )
     return [
         {
-            "attempt_id": a.id,
-            "question_id": a.question_id,
-            "score": a.score,
-            "max_score": a.max_score,
-            "accuracy": a.accuracy,
-            "time_taken_seconds": a.time_taken_seconds,
-            "created_at": a.created_at,
+            "attempt_id": a.id, "question_id": a.question_id, "score": a.score,
+            "max_score": a.max_score, "accuracy": a.accuracy,
+            "time_taken_seconds": a.time_taken_seconds, "created_at": a.created_at,
         }
         for a in attempts
     ]
@@ -117,8 +144,4 @@ def get_stats(user_id: str = "guest", db: Session = Depends(get_db)):
 
     avg_accuracy = sum(a.accuracy for a in attempts) / len(attempts)
 
-    return {
-        "total_attempts": len(attempts),
-        "average_accuracy": round(avg_accuracy, 3),
-        "by_type": by_type,
-    }
+    return {"total_attempts": len(attempts), "average_accuracy": round(avg_accuracy, 3), "by_type": by_type}
