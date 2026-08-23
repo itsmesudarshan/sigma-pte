@@ -11,6 +11,15 @@ const TYPE_LABELS = {
   mcq_multi: 'MCQ (Multiple)',
   swt: 'Summarize Written Text',
   essay: 'Write Essay',
+  read_aloud: 'Read Aloud',
+  repeat_sentence: 'Repeat Sentence',
+  answer_short_question: 'Answer Short Question',
+  l_mcq_single: 'Listening MCQ',
+  l_mcq_multi: 'Listening MCQ (Multiple)',
+  l_fill_blanks: 'Listening Fill in the Blanks',
+  highlight_summary: 'Highlight Correct Summary',
+  select_missing_word: 'Select Missing Word',
+  write_from_dictation: 'Write From Dictation',
 };
 
 export default function QuestionBank() {
@@ -26,16 +35,14 @@ export default function QuestionBank() {
   const module = searchParams.get('module') || '';
 
   const load = () => {
-    api
-      .listQuestions({
-        module: module || undefined,
-        q_type: q_type || undefined,
-        difficulty: difficulty || undefined,
-        search: search || undefined,
-        favorites_only: favoritesOnly || undefined,
-        user_id: 'guest',
-      })
-      .then(setQuestions);
+    api.listQuestions({
+      module: module || undefined,
+      q_type: q_type || undefined,
+      difficulty: difficulty || undefined,
+      search: search || undefined,
+      favorites_only: favoritesOnly || undefined,
+      user_id: 'guest',
+    }).then(setQuestions);
   };
 
   useEffect(() => { load(); }, [q_type, module, difficulty, favoritesOnly]);
@@ -74,6 +81,8 @@ export default function QuestionBank() {
           <option value="">All modules</option>
           <option value="reading">Reading</option>
           <option value="writing">Writing</option>
+          <option value="speaking">Speaking</option>
+          <option value="listening">Listening</option>
         </select>
 
         <select
@@ -120,11 +129,9 @@ export default function QuestionBank() {
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
                 <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--focus)', background: 'var(--focus-soft)', padding: '2px 7px', borderRadius: 999 }}>
-                  {TYPE_LABELS[q.q_type]}
+                  {TYPE_LABELS[q.q_type] || q.q_type}
                 </span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                  {q.difficulty}
-                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'capitalize' }}>{q.difficulty}</span>
               </div>
               <h4 style={{ fontSize: 15 }}>{q.title}</h4>
             </div>
@@ -134,9 +141,7 @@ export default function QuestionBank() {
             <ArrowRight size={16} color="var(--text-muted)" />
           </button>
         ))}
-        {questions.length === 0 && (
-          <p style={{ color: 'var(--text-muted)', fontSize: 14, padding: '20px 0' }}>No questions match these filters.</p>
-        )}
+        {questions.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: 14, padding: '20px 0' }}>No questions match these filters.</p>}
       </div>
     </div>
   );
