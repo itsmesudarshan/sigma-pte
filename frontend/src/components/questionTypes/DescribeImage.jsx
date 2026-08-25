@@ -1,52 +1,23 @@
 import { useState } from 'react';
 import PrepCountdown from '../PrepCountdown';
-import TTSPlayer from '../TTSPlayer';
+import ChartImage from '../ChartImage';
 import SpeechRecorder from '../SpeechRecorder';
 
-export default function ReadAloudSpeaking({ passage, content, onChange, result, isRepeat }) {
+export default function DescribeImage({ content, onChange, result }) {
   const [prepDone, setPrepDone] = useState(false);
-  const [audioDone, setAudioDone] = useState(false);
-
-  const readyToRecord = isRepeat ? (prepDone && audioDone) : prepDone;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {!isRepeat ? (
-        <div style={{ padding: 18, background: 'var(--paper)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--line)', fontSize: 16, lineHeight: 1.7, color: 'var(--ink)' }}>
-          {passage}
-        </div>
+      <div style={{ padding: 12, background: 'var(--paper)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--line)' }}>
+        <ChartImage type={content.chart_type} data={content.chart_data} title={content.chart_title} />
+      </div>
+
+      {!prepDone && !result ? (
+        <PrepCountdown seconds={content.prep_seconds || 25} label="Preparation time" onComplete={() => setPrepDone(true)} />
       ) : (
-        <>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            Listen to the sentence, then repeat it exactly as you heard it.
-          </p>
-          {prepDone && (
-            <TTSPlayer text={passage} rate={1} autoPlay onEnd={() => setAudioDone(true)} />
-          )}
-          {result && (
-            <div style={{ padding: 14, borderRadius: 'var(--radius-sm)', background: 'var(--paper)', border: '1px solid var(--line)', fontSize: 13, color: 'var(--text-secondary)' }}>
-              <strong style={{ color: 'var(--text-primary)' }}>Original sentence:</strong> {passage}
-            </div>
-          )}
-        </>
-      )}
-
-      {!result && !readyToRecord && (
-        <PrepCountdown
-          seconds={isRepeat ? 3 : (content.prep_seconds || 20)}
-          label={isRepeat ? 'Get ready' : 'Preparation time'}
-          onComplete={() => setPrepDone(true)}
-        />
-      )}
-
-      {!result && isRepeat && prepDone && !audioDone && (
-        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Listening... recording will start automatically once the audio ends.</p>
-      )}
-
-      {(readyToRecord || result) && (
         <SpeechRecorder
           disabled={!!result}
-          autoStart={readyToRecord && !result}
+          autoStart={!result}
           autoStopSeconds={content.record_seconds || 40}
           onResult={onChange}
         />
