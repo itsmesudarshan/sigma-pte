@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 
 const TYPES = [
-  { q_type: 'read_aloud', title: 'Read Aloud', desc: 'Read the displayed text aloud clearly and at a natural pace.' },
-  { q_type: 'repeat_sentence', title: 'Repeat Sentence', desc: 'Repeat a sentence exactly as heard.' },
-  { q_type: 'answer_short_question', title: 'Answer Short Question', desc: 'Answer a short factual question in one or two words.' },
+  { q_type: 'read_aloud', title: 'Read Aloud', desc: '20s prep, then recording starts automatically.' },
+  { q_type: 'repeat_sentence', title: 'Repeat Sentence', desc: '3s prep, audio plays, then recording starts automatically.' },
+  { q_type: 'describe_image', title: 'Describe Image', desc: '25s prep, then recording starts automatically.' },
+  { q_type: 'answer_short_question', title: 'Answer Short Question', desc: 'Recording starts automatically as soon as the question finishes playing.' },
 ];
 
 export default function Speaking() {

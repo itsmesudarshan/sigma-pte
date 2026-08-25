@@ -7,7 +7,7 @@ import ScoreGauge from '../components/ScoreGauge';
 const TYPE_LABELS = {
   rw_fill_blanks: 'R&W Fill Blanks', fill_blanks: 'Fill Blanks', reorder: 'Re-order',
   mcq_single: 'MCQ Single', mcq_multi: 'MCQ Multi', swt: 'Summarize Text', essay: 'Essay',
-  read_aloud: 'Read Aloud', repeat_sentence: 'Repeat Sentence', answer_short_question: 'Short Question',
+  read_aloud: 'Read Aloud', repeat_sentence: 'Repeat Sentence', answer_short_question: 'Short Question', describe_image: 'Describe Image',
   l_mcq_single: 'L. MCQ', l_fill_blanks: 'L. Fill Blanks', select_missing_word: 'Missing Word', write_from_dictation: 'Dictation',
 };
 

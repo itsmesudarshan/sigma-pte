@@ -13,12 +13,13 @@ import SWT from '../components/questionTypes/SWT';
 import Essay from '../components/questionTypes/Essay';
 import ReadAloudSpeaking from '../components/questionTypes/ReadAloudSpeaking';
 import AnswerShortQuestion from '../components/questionTypes/AnswerShortQuestion';
+import DescribeImage from '../components/questionTypes/DescribeImage';
 import ListeningMCQ from '../components/questionTypes/ListeningMCQ';
 import ListeningFillBlanks from '../components/questionTypes/ListeningFillBlanks';
 import WriteFromDictation from '../components/questionTypes/WriteFromDictation';
 
 const WRITING_TYPES = new Set(['swt', 'essay']);
-const SPEAKING_TYPES = new Set(['read_aloud', 'repeat_sentence', 'answer_short_question']);
+const SPEAKING_TYPES = new Set(['read_aloud', 'repeat_sentence', 'answer_short_question', 'describe_image']);
 const LISTENING_TYPES = new Set(['l_mcq_single', 'l_mcq_multi', 'l_fill_blanks', 'highlight_summary', 'select_missing_word', 'write_from_dictation']);
 
 function renderComponent(question, userAnswer, onChange, result) {
@@ -32,6 +33,7 @@ function renderComponent(question, userAnswer, onChange, result) {
     case 'swt': return <SWT passage={passage} userAnswer={userAnswer} onChange={onChange} result={result} />;
     case 'essay': return <Essay passage={passage} userAnswer={userAnswer} onChange={onChange} result={result} />;
     case 'read_aloud': return <ReadAloudSpeaking passage={passage} content={content} userAnswer={userAnswer} onChange={onChange} result={result} isRepeat={false} />;
+    case 'describe_image': return <DescribeImage content={content} userAnswer={userAnswer} onChange={onChange} result={result} />;
     case 'repeat_sentence': return <ReadAloudSpeaking passage={passage} content={content} userAnswer={userAnswer} onChange={onChange} result={result} isRepeat={true} />;
     case 'answer_short_question': return <AnswerShortQuestion passage={passage} content={content} userAnswer={userAnswer} onChange={onChange} result={result} />;
     case 'l_mcq_single':

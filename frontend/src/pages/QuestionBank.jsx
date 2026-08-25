@@ -14,6 +14,7 @@ const TYPE_LABELS = {
   read_aloud: 'Read Aloud',
   repeat_sentence: 'Repeat Sentence',
   answer_short_question: 'Answer Short Question',
+  describe_image: 'Describe Image',
   l_mcq_single: 'Listening MCQ',
   l_mcq_multi: 'Listening MCQ (Multiple)',
   l_fill_blanks: 'Listening Fill in the Blanks',
