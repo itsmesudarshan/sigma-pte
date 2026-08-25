@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models import Question, Attempt
 from app.scoring import score_attempt
 from app.scoring_writing import score_swt, score_essay
-from app.scoring_speaking import score_read_aloud_or_repeat, score_answer_short_question
+from app.scoring_speaking import score_read_aloud_or_repeat, score_answer_short_question, score_describe_image
 from app.scoring_listening import score_listening_attempt
 from app.schemas import AttemptSubmit, AttemptResult
 
@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/attempts", tags=["attempts"])
 WRITING_TYPES = {"swt", "essay"}
 SPEAKING_TIMED_TYPES = {"read_aloud", "repeat_sentence"}
 SPEAKING_SHORT_TYPES = {"answer_short_question"}
+SPEAKING_IMAGE_TYPES = {"describe_image"}
 LISTENING_TYPES = {"l_mcq_single", "l_mcq_multi", "l_fill_blanks", "highlight_summary", "select_missing_word", "write_from_dictation"}
 
 
@@ -42,6 +43,10 @@ def _score_speaking(question: Question, user_answer: Dict[str, Any]) -> Dict[str
     if question.q_type in SPEAKING_TIMED_TYPES:
         target_text = question.passage or ""
         result = score_read_aloud_or_repeat(target_text, transcript, duration)
+    elif question.q_type in SPEAKING_IMAGE_TYPES:
+        key_points = (question.content or {}).get("key_points", [])
+        task_description = question.passage or "Describe the image in as much detail as you can."
+        result = score_describe_image(task_description, key_points, transcript, duration)
     else:
         acceptable = (question.content or {}).get("acceptable_answers", [])
         result = score_answer_short_question(acceptable, transcript)
@@ -68,7 +73,7 @@ def submit_attempt(payload: AttemptSubmit, db: Session = Depends(get_db)):
 
     if question.q_type in WRITING_TYPES:
         result = _score_writing(question, payload.user_answer)
-    elif question.q_type in SPEAKING_TIMED_TYPES or question.q_type in SPEAKING_SHORT_TYPES:
+    elif question.q_type in SPEAKING_TIMED_TYPES or question.q_type in SPEAKING_SHORT_TYPES or question.q_type in SPEAKING_IMAGE_TYPES:
         result = _score_speaking(question, payload.user_answer)
     elif question.q_type in LISTENING_TYPES:
         result = _score_listening(question, payload.user_answer)
