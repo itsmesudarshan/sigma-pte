@@ -162,3 +162,81 @@ def score_answer_short_question(acceptable_answers: list, transcript: str) -> di
         "ai_assisted": False,
         "notes": {"scoring_method": "Exact/near-match against acceptable answers (official rubric: correct=1, incorrect=0)."},
     }
+
+
+# ---------------- Describe Image ----------------
+# Open-ended spoken response describing a chart/graph — no fixed target text,
+# so Content is scored against key_points (keyword coverage + optional AI
+# judgment, same pattern as Writing), while Fluency stays rate-based.
+# Pronunciation has no target text to compare against here, so it's
+# approximated from how many transcribed words are recognizable English
+# words at all — a weaker proxy than Read Aloud's word-overlap method,
+# flagged accordingly in the response.
+
+from app.scoring_writing import _spell as _dictionary
+
+
+def _recognizable_word_ratio(words):
+    if not words:
+        return 0.0
+    candidates = [w for w in words if w.isalpha() and len(w) > 2]
+    if not candidates:
+        return 0.0
+    unknown = _dictionary.unknown(candidates)
+    return 1 - (len(unknown) / len(candidates))
+
+
+def score_describe_image(task_description: str, key_points: list, transcript: str, duration_seconds: float) -> dict:
+    transcript_words = _tokenize(transcript)
+
+    transcript_set = set(transcript_words)
+    covered = sum(1 for point in key_points if any(kw.lower() in transcript_set for kw in point))
+    coverage = covered / len(key_points) if key_points else 0.0
+
+    if len(transcript_words) < 5:
+        heuristic_content = 0
+    elif coverage >= 0.75:
+        heuristic_content = 3
+    elif coverage >= 0.4:
+        heuristic_content = 2
+    elif coverage > 0:
+        heuristic_content = 1
+    else:
+        heuristic_content = 0
+
+    ai_result = ai_score_speaking_content(task_description, ", ".join(kw[0] for kw in key_points), transcript) if len(transcript_words) >= 5 else None
+    ai_used = ai_result is not None
+    content_score = blend(heuristic_content, ai_result["content"] if ai_result else None, max_score=3)
+
+    fluency_score = estimate_fluency(len(transcript_words), duration_seconds)
+
+    recognizable_ratio = _recognizable_word_ratio(transcript_words)
+    if recognizable_ratio >= 0.9:
+        pronunciation_score = 5
+    elif recognizable_ratio >= 0.75:
+        pronunciation_score = 4
+    elif recognizable_ratio >= 0.55:
+        pronunciation_score = 3
+    elif recognizable_ratio >= 0.35:
+        pronunciation_score = 2
+    elif recognizable_ratio > 0:
+        pronunciation_score = 1
+    else:
+        pronunciation_score = 0
+
+    total = content_score + fluency_score + pronunciation_score
+
+    return {
+        "content": content_score, "content_max": 3,
+        "fluency": fluency_score, "fluency_max": 5,
+        "pronunciation": pronunciation_score, "pronunciation_max": 5,
+        "total": total, "max_total": 13,
+        "transcript": transcript,
+        "coverage_ratio": round(coverage, 2),
+        "ai_assisted": ai_used,
+        "ai_reason": ai_result.get("reason") if ai_result else None,
+        "notes": {
+            "scoring_method": "AI + heuristic blend" if ai_used else "Heuristic only (no AI key configured, or AI call unavailable)",
+            "pronunciation_caveat": "Estimated from how many transcribed words are recognizable English words — a weaker proxy than the fixed-text speaking types, since there's no target sentence to compare against.",
+        },
+    }
