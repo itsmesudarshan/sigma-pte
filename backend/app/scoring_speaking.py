@@ -76,19 +76,56 @@ def estimate_fluency(word_count: int, duration_seconds: float) -> int:
     return 0
 
 
-def estimate_pronunciation(target_words, transcript_words) -> int:
-    """Proxy: how cleanly the recognizer transcribed target vocabulary.
-    Higher word-level match => clearer pronunciation, as a heuristic."""
+def estimate_pronunciation(target_words, transcript_words, confidence=None) -> int:
+    """
+    Blends two signals: word-level match against the target text (was the
+    right vocabulary produced), and the browser's own recognition confidence
+    when available (a genuine per-utterance signal from the speech engine,
+    not a guess). Falls back to word-overlap alone if confidence wasn't
+    captured (older browsers, or Firefox/Safari which don't expose it).
+    """
     overlap = word_overlap_ratio(target_words, transcript_words)
-    if overlap >= 0.9:
+
+    if confidence is not None:
+        combined = (confidence * 0.6) + (overlap * 0.4)
+    else:
+        combined = overlap
+
+    if combined >= 0.9:
         return 5
-    elif overlap >= 0.75:
+    elif combined >= 0.75:
         return 4
-    elif overlap >= 0.55:
+    elif combined >= 0.55:
         return 3
-    elif overlap >= 0.35:
+    elif combined >= 0.35:
         return 2
-    elif overlap > 0:
+    elif combined > 0:
+        return 1
+    return 0
+
+
+def repetition_penalty(words) -> int:
+    """
+    Detects repeated 3-word phrases as a proxy for disfluent, padded, or
+    circular speech — something pure words-per-minute can't catch, since a
+    rambling response can still hit a natural pace. Returns a 0-2 point
+    penalty to subtract from the fluency score.
+    """
+    if len(words) < 6:
+        return 0
+    trigrams = [tuple(words[i:i + 3]) for i in range(len(words) - 2)]
+    if not trigrams:
+        return 0
+    seen = set()
+    repeats = 0
+    for t in trigrams:
+        if t in seen:
+            repeats += 1
+        seen.add(t)
+    repeat_ratio = repeats / len(trigrams)
+    if repeat_ratio >= 0.25:
+        return 2
+    elif repeat_ratio >= 0.12:
         return 1
     return 0
 
@@ -96,7 +133,7 @@ def estimate_pronunciation(target_words, transcript_words) -> int:
 # ---------------- Read Aloud / Repeat Sentence ----------------
 # Both compare a spoken transcript against a fixed target text.
 
-def score_read_aloud_or_repeat(target_text: str, transcript: str, duration_seconds: float) -> dict:
+def score_read_aloud_or_repeat(target_text: str, transcript: str, duration_seconds: float, confidence=None) -> dict:
     target_words = _tokenize(target_text)
     transcript_words = _tokenize(transcript)
 
@@ -120,8 +157,8 @@ def score_read_aloud_or_repeat(target_text: str, transcript: str, duration_secon
     ai_used = ai_result is not None
     content_score = blend(heuristic_content, ai_result["content"] if ai_result else None, max_score=3)
 
-    fluency_score = estimate_fluency(len(transcript_words), duration_seconds)
-    pronunciation_score = estimate_pronunciation(target_words, transcript_words)
+    fluency_score = max(0, estimate_fluency(len(transcript_words), duration_seconds) - repetition_penalty(transcript_words))
+    pronunciation_score = estimate_pronunciation(target_words, transcript_words, confidence)
 
     total = content_score + fluency_score + pronunciation_score
 
@@ -137,7 +174,7 @@ def score_read_aloud_or_repeat(target_text: str, transcript: str, duration_secon
         "ai_reason": ai_result.get("reason") if ai_result else None,
         "notes": {
             "scoring_method": "AI + heuristic blend" if ai_used else "Heuristic only (no AI key configured, or AI call unavailable)",
-            "pronunciation_caveat": "Estimated from speech-recognition accuracy, not true phonetic analysis.",
+            "pronunciation_caveat": "Blends browser recognition confidence with word-level match — not true phonetic analysis." if confidence is not None else "Estimated from speech-recognition word match only, not true phonetic analysis (browser didn't report confidence).",
         },
     }
 
@@ -186,15 +223,42 @@ def _recognizable_word_ratio(words):
     return 1 - (len(unknown) / len(candidates))
 
 
-def score_describe_image(task_description: str, key_points: list, transcript: str, duration_seconds: float) -> dict:
+CHART_TYPE_WORDS = {
+    "bar": ["bar chart", "bar graph", "bar diagram"],
+    "line": ["line chart", "line graph", "line diagram"],
+    "pie": ["pie chart", "pie graph", "pie diagram"],
+}
+
+
+def _detect_chart_type_mismatch(transcript_lower: str, correct_chart_type: str) -> bool:
+    """Returns True if the speaker explicitly named a DIFFERENT chart type
+    than the one actually shown (e.g. said 'bar graph' for a pie chart) —
+    a factual error that keyword-overlap scoring alone would miss, since
+    'graph' still matches regardless of which chart type precedes it."""
+    for chart_type, phrases in CHART_TYPE_WORDS.items():
+        if chart_type == correct_chart_type:
+            continue
+        if any(phrase in transcript_lower for phrase in phrases):
+            return True
+    return False
+
+
+def score_describe_image(task_description: str, key_points: list, transcript: str, duration_seconds: float, chart_type: str = None, confidence=None) -> dict:
     transcript_words = _tokenize(transcript)
+    transcript_lower = transcript.lower()
 
     transcript_set = set(transcript_words)
     covered = sum(1 for point in key_points if any(kw.lower() in transcript_set for kw in point))
     coverage = covered / len(key_points) if key_points else 0.0
 
+    chart_mismatch = chart_type and _detect_chart_type_mismatch(transcript_lower, chart_type)
+
     if len(transcript_words) < 5:
         heuristic_content = 0
+    elif chart_mismatch:
+        # Naming the wrong chart type is a factual error about the prompt
+        # itself — cap content regardless of how much other vocabulary matches.
+        heuristic_content = 1
     elif coverage >= 0.75:
         heuristic_content = 3
     elif coverage >= 0.4:
@@ -204,22 +268,30 @@ def score_describe_image(task_description: str, key_points: list, transcript: st
     else:
         heuristic_content = 0
 
-    ai_result = ai_score_speaking_content(task_description, ", ".join(kw[0] for kw in key_points), transcript) if len(transcript_words) >= 5 else None
+    task_with_type = f"{task_description} (The image is actually a {chart_type} chart — penalize the response if it misidentifies the chart type.)" if chart_type else task_description
+    ai_result = ai_score_speaking_content(task_with_type, ", ".join(kw[0] for kw in key_points), transcript) if len(transcript_words) >= 5 else None
     ai_used = ai_result is not None
     content_score = blend(heuristic_content, ai_result["content"] if ai_result else None, max_score=3)
+    if chart_mismatch:
+        content_score = min(content_score, 1)
 
-    fluency_score = estimate_fluency(len(transcript_words), duration_seconds)
+    fluency_score = max(0, estimate_fluency(len(transcript_words), duration_seconds) - repetition_penalty(transcript_words))
 
-    recognizable_ratio = _recognizable_word_ratio(transcript_words)
-    if recognizable_ratio >= 0.9:
+    if confidence is not None:
+        recognizable_ratio = _recognizable_word_ratio(transcript_words)
+        combined = (confidence * 0.6) + (recognizable_ratio * 0.4)
+    else:
+        combined = _recognizable_word_ratio(transcript_words)
+
+    if combined >= 0.9:
         pronunciation_score = 5
-    elif recognizable_ratio >= 0.75:
+    elif combined >= 0.75:
         pronunciation_score = 4
-    elif recognizable_ratio >= 0.55:
+    elif combined >= 0.55:
         pronunciation_score = 3
-    elif recognizable_ratio >= 0.35:
+    elif combined >= 0.35:
         pronunciation_score = 2
-    elif recognizable_ratio > 0:
+    elif combined > 0:
         pronunciation_score = 1
     else:
         pronunciation_score = 0
@@ -233,10 +305,12 @@ def score_describe_image(task_description: str, key_points: list, transcript: st
         "total": total, "max_total": 13,
         "transcript": transcript,
         "coverage_ratio": round(coverage, 2),
+        "chart_type_mismatch": bool(chart_mismatch),
         "ai_assisted": ai_used,
         "ai_reason": ai_result.get("reason") if ai_result else None,
         "notes": {
             "scoring_method": "AI + heuristic blend" if ai_used else "Heuristic only (no AI key configured, or AI call unavailable)",
-            "pronunciation_caveat": "Estimated from how many transcribed words are recognizable English words — a weaker proxy than the fixed-text speaking types, since there's no target sentence to compare against.",
+            "pronunciation_caveat": "Blends browser recognition confidence with recognizable-word ratio — not true phonetic analysis." if confidence is not None else "Estimated from how many transcribed words are recognizable English words — a weaker proxy since there's no target sentence to compare against.",
+            **({"chart_type_warning": f"You referred to this as a different chart type than what's shown ({chart_type} chart) — this caps your Content score."} if chart_mismatch else {}),
         },
     }
