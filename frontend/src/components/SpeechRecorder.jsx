@@ -11,6 +11,8 @@ export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 3
   const [supported] = useState(!!SpeechRecognitionAPI);
   const recognitionRef = useRef(null);
   const transcriptRef = useRef('');
+  const confidenceSumRef = useRef(0);
+  const confidenceCountRef = useRef(0);
   const startTimeRef = useRef(null);
   const timeoutRef = useRef(null);
   const hasAutoStartedRef = useRef(false);
@@ -26,6 +28,12 @@ export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 3
       let combined = '';
       for (let i = 0; i < event.results.length; i++) {
         combined += event.results[i][0].transcript;
+        // Chrome/Edge expose a per-result confidence (0-1) on final results —
+        // a genuine speech-recognition confidence signal, not a guess.
+        if (event.results[i].isFinal && typeof event.results[i][0].confidence === 'number' && event.results[i][0].confidence > 0) {
+          confidenceSumRef.current += event.results[i][0].confidence;
+          confidenceCountRef.current += 1;
+        }
       }
       transcriptRef.current = combined.trim();
       setTranscript(combined.trim());
@@ -42,6 +50,8 @@ export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 3
     if (!recognitionRef.current || disabled) return;
     transcriptRef.current = '';
     setTranscript('');
+    confidenceSumRef.current = 0;
+    confidenceCountRef.current = 0;
     startTimeRef.current = Date.now();
     recognitionRef.current.start();
     setRecording(true);
@@ -54,7 +64,8 @@ export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 3
     setRecording(false);
     clearTimeout(timeoutRef.current);
     const durationSeconds = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0;
-    onResult({ transcript: transcriptRef.current, duration_seconds: Math.round(durationSeconds) });
+    const avgConfidence = confidenceCountRef.current > 0 ? confidenceSumRef.current / confidenceCountRef.current : null;
+    onResult({ transcript: transcriptRef.current, duration_seconds: Math.round(durationSeconds), confidence: avgConfidence });
   };
 
   const reset = () => {
