@@ -39,14 +39,16 @@ def _score_writing(question: Question, user_answer: Dict[str, Any]) -> Dict[str,
 def _score_speaking(question: Question, user_answer: Dict[str, Any]) -> Dict[str, Any]:
     transcript = user_answer.get("transcript", "")
     duration = user_answer.get("duration_seconds", 0)
+    confidence = user_answer.get("confidence")
 
     if question.q_type in SPEAKING_TIMED_TYPES:
         target_text = question.passage or ""
-        result = score_read_aloud_or_repeat(target_text, transcript, duration)
+        result = score_read_aloud_or_repeat(target_text, transcript, duration, confidence=confidence)
     elif question.q_type in SPEAKING_IMAGE_TYPES:
         key_points = (question.content or {}).get("key_points", [])
         task_description = question.passage or "Describe the image in as much detail as you can."
-        result = score_describe_image(task_description, key_points, transcript, duration)
+        chart_type = (question.content or {}).get("chart_type")
+        result = score_describe_image(task_description, key_points, transcript, duration, chart_type=chart_type, confidence=confidence)
     else:
         acceptable = (question.content or {}).get("acceptable_answers", [])
         result = score_answer_short_question(acceptable, transcript)
