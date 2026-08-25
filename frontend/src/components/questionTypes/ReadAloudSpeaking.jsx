@@ -1,19 +1,25 @@
 import SpeechRecorder from '../SpeechRecorder';
+import TTSPlayer from '../TTSPlayer';
 
 export default function ReadAloudSpeaking({ passage, content, userAnswer, onChange, result, isRepeat }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {!isRepeat && (
+      {!isRepeat ? (
         <div style={{ padding: 18, background: 'var(--paper)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--line)', fontSize: 16, lineHeight: 1.7, color: 'var(--ink)' }}>
           {passage}
         </div>
-      )}
-      {isRepeat && (
-        <div style={{ padding: 18, background: 'var(--amber-soft)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--amber)', fontSize: 13, color: 'var(--text-primary)' }}>
-          Listen to the sentence, then repeat it exactly. (Sentence text is hidden until you submit — in this
-          browser-based version, read it silently once to simulate hearing it, then record.)
-          <p style={{ marginTop: 10, fontStyle: 'italic', color: 'var(--text-secondary)' }}>{passage}</p>
-        </div>
+      ) : (
+        <>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+            Listen to the sentence, then repeat it exactly as you heard it.
+          </p>
+          <TTSPlayer text={passage} rate={1} />
+          {result && (
+            <div style={{ padding: 14, borderRadius: 'var(--radius-sm)', background: 'var(--paper)', border: '1px solid var(--line)', fontSize: 13, color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Original sentence:</strong> {passage}
+            </div>
+          )}
+        </>
       )}
 
       <SpeechRecorder
