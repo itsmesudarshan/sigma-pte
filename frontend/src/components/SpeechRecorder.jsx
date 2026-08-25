@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, RotateCcw } from 'lucide-react';
 
-// Uses the browser's free, built-in SpeechRecognition API — no server-side
-// audio processing or paid transcription service involved.
 const SpeechRecognitionAPI = typeof window !== 'undefined'
   ? (window.SpeechRecognition || window.webkitSpeechRecognition)
   : null;
 
-export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 30 }) {
+export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 30, autoStart = false }) {
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [supported, setSupported] = useState(!!SpeechRecognitionAPI);
+  const [supported] = useState(!!SpeechRecognitionAPI);
   const recognitionRef = useRef(null);
+  const transcriptRef = useRef('');
   const startTimeRef = useRef(null);
   const timeoutRef = useRef(null);
+  const hasAutoStartedRef = useRef(false);
 
   useEffect(() => {
     if (!SpeechRecognitionAPI) return;
@@ -27,6 +27,7 @@ export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 3
       for (let i = 0; i < event.results.length; i++) {
         combined += event.results[i][0].transcript;
       }
+      transcriptRef.current = combined.trim();
       setTranscript(combined.trim());
     };
 
@@ -39,11 +40,11 @@ export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 3
 
   const start = () => {
     if (!recognitionRef.current || disabled) return;
+    transcriptRef.current = '';
     setTranscript('');
     startTimeRef.current = Date.now();
     recognitionRef.current.start();
     setRecording(true);
-
     timeoutRef.current = setTimeout(() => stop(), autoStopSeconds * 1000);
   };
 
@@ -53,13 +54,22 @@ export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 3
     setRecording(false);
     clearTimeout(timeoutRef.current);
     const durationSeconds = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0;
-    onResult({ transcript: transcript, duration_seconds: Math.round(durationSeconds) });
+    onResult({ transcript: transcriptRef.current, duration_seconds: Math.round(durationSeconds) });
   };
 
   const reset = () => {
+    transcriptRef.current = '';
     setTranscript('');
     onResult({ transcript: '', duration_seconds: 0 });
   };
+
+  useEffect(() => {
+    if (autoStart && supported && !disabled && !hasAutoStartedRef.current) {
+      hasAutoStartedRef.current = true;
+      start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, supported, disabled]);
 
   if (!supported) {
     return (
@@ -76,19 +86,12 @@ export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 3
           <button
             onClick={start}
             disabled={disabled}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 999,
-              border: 'none', background: disabled ? 'var(--line-strong)' : 'var(--error)', color: '#fff',
-              fontSize: 13, fontWeight: 700,
-            }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 999, border: 'none', background: disabled ? 'var(--line-strong)' : 'var(--error)', color: '#fff', fontSize: 13, fontWeight: 700 }}
           >
             <Mic size={16} /> {transcript ? 'Record Again' : 'Start Recording'}
           </button>
         ) : (
-          <button
-            onClick={stop}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 999, border: 'none', background: 'var(--ink)', color: '#fff', fontSize: 13, fontWeight: 700 }}
-          >
+          <button onClick={stop} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 999, border: 'none', background: 'var(--ink)', color: '#fff', fontSize: 13, fontWeight: 700 }}>
             <Square size={14} fill="#fff" /> Stop
           </button>
         )}
