@@ -7,6 +7,8 @@ import Speaking from './pages/Speaking';
 import Listening from './pages/Listening';
 import QuestionBank from './pages/QuestionBank';
 import Practice from './pages/Practice';
+import MockTest from './pages/MockTest';
+import MockTestRunner from './pages/MockTestRunner';
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
           <Route path="/listening" element={<Listening />} />
           <Route path="/question-bank" element={<QuestionBank />} />
           <Route path="/practice/:id" element={<Practice />} />
+          <Route path="/mock-test" element={<MockTest />} />
+          <Route path="/mock-test/run" element={<MockTestRunner />} />
         </Route>
       </Routes>
     </BrowserRouter>
