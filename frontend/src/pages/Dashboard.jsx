@@ -16,6 +16,7 @@ const MODULE_LINKS = [
   { to: '/writing', label: 'Writing', color: 'var(--focus)' },
   { to: '/speaking', label: 'Speaking', color: 'var(--success)' },
   { to: '/listening', label: 'Listening', color: 'var(--amber)' },
+  { to: '/mock-test', label: 'Mock Test', color: 'var(--error)' },
 ];
 
 export default function Dashboard() {
