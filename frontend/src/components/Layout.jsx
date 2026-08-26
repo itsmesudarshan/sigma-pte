@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, PenLine, Mic, Headphones, Library } from 'lucide-react';
+import { LayoutDashboard, BookOpen, PenLine, Mic, Headphones, ClipboardCheck } from 'lucide-react';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -7,7 +7,7 @@ const navItems = [
   { to: '/writing', label: 'Writing', icon: PenLine },
   { to: '/speaking', label: 'Speaking', icon: Mic },
   { to: '/listening', label: 'Listening', icon: Headphones },
-  { to: '/question-bank', label: 'Question Bank', icon: Library },
+  { to: '/mock-test', label: 'Mock Test', icon: ClipboardCheck },
 ];
 
 export default function Layout() {
