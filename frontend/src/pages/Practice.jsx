@@ -5,10 +5,12 @@ import { api } from '../api/client';
 import Timer from '../components/Timer';
 import ScoreGauge from '../components/ScoreGauge';
 import { renderQuestionComponent, canSubmitAnswer, getModuleForType } from '../lib/questionRenderer';
+import { useAuth } from '../context/AuthContext';
 
 export default function Practice() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [question, setQuestion] = useState(null);
   const [userAnswer, setUserAnswer] = useState({});
@@ -33,7 +35,7 @@ export default function Practice() {
     try {
       const res = await api.submitAttempt({
         question_id: question.id,
-        user_id: 'guest',
+        user_id: user.email,
         user_answer: userAnswer,
         time_taken_seconds: elapsed,
       });

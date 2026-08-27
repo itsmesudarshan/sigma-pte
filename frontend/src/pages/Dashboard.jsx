@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 import { api } from '../api/client';
 import ScoreGauge from '../components/ScoreGauge';
+import { useAuth } from '../context/AuthContext';
 
 const TYPE_LABELS = {
   rw_fill_blanks: 'R&W Fill Blanks', fill_blanks: 'Fill Blanks', reorder: 'Re-order',
@@ -23,10 +24,11 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [recent, setRecent] = useState([]);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
-    api.getStats('guest').then(setStats);
-    api.recentlyAttempted('guest').then(setRecent);
+    api.getStats(user.email).then(setStats);
+    api.recentlyAttempted(user.email).then(setRecent);
   }, []);
 
   const chartData = stats

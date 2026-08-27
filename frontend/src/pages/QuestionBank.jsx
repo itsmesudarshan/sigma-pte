@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Star, ArrowRight } from 'lucide-react';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const TYPE_LABELS = {
   rw_fill_blanks: 'R&W Fill in the Blanks',
@@ -28,6 +29,7 @@ export default function QuestionBank() {
   const [questions, setQuestions] = useState([]);
   const [search, setSearch] = useState('');
   const [difficulty, setDifficulty] = useState('');
+  const { user } = useAuth();
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favIds, setFavIds] = useState(new Set());
   const navigate = useNavigate();
@@ -42,7 +44,7 @@ export default function QuestionBank() {
       difficulty: difficulty || undefined,
       search: search || undefined,
       favorites_only: favoritesOnly || undefined,
-      user_id: 'guest',
+      user_id: user.email,
     }).then(setQuestions);
   };
 
@@ -50,7 +52,7 @@ export default function QuestionBank() {
 
   const toggleFav = async (id, e) => {
     e.stopPropagation();
-    await api.toggleFavorite('guest', id);
+    await api.toggleFavorite(user.email, id);
     setFavIds((s) => {
       const next = new Set(s);
       next.has(id) ? next.delete(id) : next.add(id);

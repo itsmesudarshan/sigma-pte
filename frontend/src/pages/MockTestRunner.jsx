@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle2, RotateCcw } from 'lucide-react';
 import { api } from '../api/client';
 import ScoreGauge from '../components/ScoreGauge';
 import { renderQuestionComponent, canSubmitAnswer } from '../lib/questionRenderer';
+import { useAuth } from '../context/AuthContext';
 
 function shuffle(arr) {
   const a = [...arr];
@@ -33,6 +34,7 @@ export default function MockTestRunner() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const scope = searchParams.get('scope') || 'full';
+  const { user } = useAuth();
 
   const [questions, setQuestions] = useState(null);
   const [index, setIndex] = useState(0);
@@ -103,7 +105,7 @@ export default function MockTestRunner() {
     try {
       const res = await api.submitAttempt({
         question_id: question.id,
-        user_id: 'guest',
+        user_id: user.email,
         user_answer: userAnswer,
         time_taken_seconds: 0,
       });
