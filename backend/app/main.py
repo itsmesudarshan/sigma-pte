@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, SessionLocal
-from app.routers import questions, attempts
+from app.routers import questions, attempts, auth
 from app.models import Question
 from app.data.seed_questions import SEED_QUESTIONS
 from app.data.seed_writing import SEED_WRITING
@@ -23,6 +23,7 @@ app.add_middleware(
 
 app.include_router(questions.router)
 app.include_router(attempts.router)
+app.include_router(auth.router)
 
 
 @app.on_event("startup")

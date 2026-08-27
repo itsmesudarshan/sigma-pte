@@ -51,3 +51,26 @@ class AttemptResult(BaseModel):
 class FavoriteToggle(BaseModel):
     user_id: str = "guest"
     question_id: int
+
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+
+    class Config:
+        from_attributes = True
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user: UserOut
