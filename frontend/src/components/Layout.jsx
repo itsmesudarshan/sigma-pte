@@ -1,5 +1,6 @@
-import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, PenLine, Mic, Headphones, ClipboardCheck } from 'lucide-react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, BookOpen, PenLine, Mic, Headphones, ClipboardCheck, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -11,15 +12,23 @@ const navItems = [
 ];
 
 export default function Layout() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <aside style={{ width: 232, borderRight: '1px solid var(--line)', background: 'var(--paper-raised)', padding: '28px 16px', flexShrink: 0 }}>
+      <aside style={{ width: 232, borderRight: '1px solid var(--line)', background: 'var(--paper-raised)', padding: '28px 16px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '0 12px', marginBottom: 36 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Prepwise</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2 }}>PTE Academic Prep</div>
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -36,6 +45,17 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, marginTop: 14 }}>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '0 12px 10px', wordBreak: 'break-all' }}>{user?.email}</p>
+          <button
+            onClick={handleLogout}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}
+          >
+            <LogOut size={16} strokeWidth={2.2} />
+            Log Out
+          </button>
+        </div>
       </aside>
 
       <main style={{ flex: 1, padding: '32px 40px', maxWidth: 1080 }}>
