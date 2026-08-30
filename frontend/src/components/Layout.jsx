@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, PenLine, Mic, Headphones, ClipboardCheck, LogOut } from 'lucide-react';
+import { LayoutDashboard, BookOpen, PenLine, Mic, Headphones, ClipboardCheck, LogOut, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -13,6 +14,7 @@ const navItems = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -47,7 +49,14 @@ export default function Layout() {
         </nav>
 
         <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, marginTop: 14 }}>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '0 12px 10px', wordBreak: 'break-all' }}>{user?.email}</p>
+          <button
+            onClick={toggleTheme}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}
+          >
+            {theme === 'dark' ? <Sun size={16} strokeWidth={2.2} /> : <Moon size={16} strokeWidth={2.2} />}
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 12px 10px', wordBreak: 'break-all' }}>{user?.email}</p>
           <button
             onClick={handleLogout}
             style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}
