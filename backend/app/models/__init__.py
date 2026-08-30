@@ -12,6 +12,18 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class EmailOTP(Base):
+    __tablename__ = "email_otps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True, nullable=False)
+    otp_hash = Column(String, nullable=False)
+    pending_password_hash = Column(String, nullable=False)  # password chosen at request time, applied on verify
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    consumed = Column(Integer, default=0)  # 0/1 — SQLite has no native bool
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Question(Base):
     __tablename__ = "questions"
 
