@@ -13,8 +13,10 @@ async function request(path, options = {}) {
 }
 
 export const authApi = {
-  signup: (email, password) =>
-    request('/api/auth/signup', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  requestSignupOtp: (email, password) =>
+    request('/api/auth/signup/request-otp', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  verifySignupOtp: (email, otp) =>
+    request('/api/auth/signup/verify', { method: 'POST', body: JSON.stringify({ email, otp }) }),
   login: (email, password) =>
     request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   me: (token) =>
