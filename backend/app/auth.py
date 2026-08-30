@@ -12,6 +12,8 @@ providers under different historical domain names).
 
 import os
 import re
+import secrets
+import hashlib
 import bcrypt
 import jwt
 from datetime import datetime, timedelta, timezone
@@ -24,6 +26,8 @@ from app.models import User
 JWT_SECRET = os.getenv("JWT_SECRET", "prepwise-dev-secret-change-in-production")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = 30
+OTP_EXPIRY_MINUTES = 10
+OTP_RESEND_COOLDOWN_SECONDS = 60
 
 ALLOWED_DOMAINS = {
     "gmail.com", "googlemail.com",
@@ -49,6 +53,18 @@ def verify_password(password: str, password_hash: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except ValueError:
         return False
+
+
+def generate_otp() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def hash_otp(otp: str) -> str:
+    return hashlib.sha256(otp.encode("utf-8")).hexdigest()
+
+
+def verify_otp(otp: str, otp_hash: str) -> bool:
+    return hash_otp(otp) == otp_hash
 
 
 def create_token(user_id: int, email: str) -> str:
