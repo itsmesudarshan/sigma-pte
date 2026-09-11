@@ -26,7 +26,7 @@ export default function Layout() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <aside style={{ width: 232, borderRight: '1px solid var(--line)', background: 'var(--paper-raised)', padding: '28px 16px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '0 12px', marginBottom: 36 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Prepwise</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>SigmaPte</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2 }}>PTE Academic Prep</div>
         </div>
 
