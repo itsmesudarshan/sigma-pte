@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Play } from 'lucide-react';
 import PrepCountdown from '../PrepCountdown';
 import TTSPlayer from '../TTSPlayer';
 import SpeechRecorder from '../SpeechRecorder';
@@ -6,8 +7,14 @@ import SpeechRecorder from '../SpeechRecorder';
 export default function ReadAloudSpeaking({ passage, content, onChange, result, isRepeat }) {
   const [prepDone, setPrepDone] = useState(false);
   const [audioDone, setAudioDone] = useState(false);
+  const [audioKey, setAudioKey] = useState(0);
 
   const readyToRecord = isRepeat ? (prepDone && audioDone) : prepDone;
+
+  const skipAudioWait = () => {
+    window.speechSynthesis?.cancel();
+    setAudioDone(true);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -21,7 +28,7 @@ export default function ReadAloudSpeaking({ passage, content, onChange, result, 
             Listen to the sentence, then repeat it exactly as you heard it.
           </p>
           {prepDone && (
-            <TTSPlayer text={passage} rate={1} autoPlay onEnd={() => setAudioDone(true)} />
+            <TTSPlayer key={audioKey} text={passage} rate={1} autoPlay onEnd={() => setAudioDone(true)} />
           )}
           {result && (
             <div style={{ padding: 14, borderRadius: 'var(--radius-sm)', background: 'var(--paper)', border: '1px solid var(--line)', fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -31,7 +38,7 @@ export default function ReadAloudSpeaking({ passage, content, onChange, result, 
         </>
       )}
 
-      {!result && !readyToRecord && (
+      {!result && !readyToRecord && !(isRepeat && prepDone) && (
         <PrepCountdown
           seconds={isRepeat ? 3 : (content.prep_seconds || 20)}
           label={isRepeat ? 'Get ready' : 'Preparation time'}
@@ -40,7 +47,15 @@ export default function ReadAloudSpeaking({ passage, content, onChange, result, 
       )}
 
       {!result && isRepeat && prepDone && !audioDone && (
-        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Listening... recording will start automatically once the audio ends.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--paper)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--line)' }}>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Listening... recording starts automatically once the audio ends.</p>
+          <button
+            onClick={skipAudioWait}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 999, border: 'none', background: 'var(--ink)', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}
+          >
+            <Play size={12} fill="#fff" /> Start Now
+          </button>
+        </div>
       )}
 
       {(readyToRecord || result) && (
