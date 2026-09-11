@@ -1,27 +1,34 @@
 """
-Scoring engine for PTE Academic Speaking question types (Read Aloud, Repeat
-Sentence, Answer Short Question), aligned to Pearson's official scoring
-traits: Content (0-3), Oral Fluency (0-5), Pronunciation (0-5).
+Scoring engine for PTE Academic Speaking question types (Read Aloud,
+Repeat Sentence, Answer Short Question, Describe Image), aligned to
+Pearson's official scoring traits: Content (0-3), Oral Fluency (0-5),
+Pronunciation (0-5).
 
-IMPORTANT HONESTY NOTE:
-Speech is captured in-browser via the free Web Speech API (SpeechRecognition),
-which transcribes what you said to text — there is no paid speech service
-involved. This means:
-  - Content scoring compares your transcript to the target text/expected
-    answer (word overlap + AI judgment when available) — reliable.
-  - Oral Fluency is estimated from speaking rate (words per minute) and
-    response timing, since the browser doesn't expose pause-by-pause audio
-    analysis — a genuine approximation, not Pearson's proprietary fluency
-    model.
-  - Pronunciation is approximated by how accurately the browser's speech
-    recognizer could transcribe your words. This is an indirect proxy: poor
-    recognition often does correlate with unclear pronunciation, but this
-    is the weakest-evidence trait here and should be read as directional,
-    not exact.
+PRONUNCIATION & FLUENCY SCORING — two tiers:
+
+  1. Real acoustic scoring (preferred, when configured): the actual audio
+     recording is sent to Azure AI Speech's Pronunciation Assessment API
+     (see app/azure_pronunciation.py). This performs a genuine phoneme-
+     level comparison between the sounds you actually produced and what's
+     expected for the target text, computed on Microsoft's servers — not
+     a text-matching proxy. Free tier (F0): 5 audio hours/month.
+
+  2. Heuristic fallback (always available, used automatically if Azure
+     isn't configured, the free quota is exhausted, or a call to it
+     fails): estimates pronunciation from how accurately the browser's
+     built-in speech recognizer transcribed the target vocabulary,
+     optionally blended with the recognizer's own confidence score when
+     the browser provides one. This is a weaker proxy — a recognizer can
+     still guess the right words from imperfect pronunciation — which is
+     exactly why tier 1 exists.
+
+Which tier was used is always reported in the response so the person can
+see which kind of signal they're looking at.
 """
 
 import re
 from app.scoring_ai import ai_score_speaking_content, blend
+from app.azure_pronunciation import score_pronunciation_via_azure, is_azure_configured
 
 WORDS_PER_MINUTE_IDEAL_MIN = 90
 WORDS_PER_MINUTE_IDEAL_MAX = 160
@@ -78,11 +85,9 @@ def estimate_fluency(word_count: int, duration_seconds: float) -> int:
 
 def estimate_pronunciation(target_words, transcript_words, confidence=None) -> int:
     """
-    Blends two signals: word-level match against the target text (was the
-    right vocabulary produced), and the browser's own recognition confidence
-    when available (a genuine per-utterance signal from the speech engine,
-    not a guess). Falls back to word-overlap alone if confidence wasn't
-    captured (older browsers, or Firefox/Safari which don't expose it).
+    Heuristic fallback only (used when real phoneme scoring isn't
+    available). Blends word-level match against the target text with the
+    browser's own recognition confidence when available.
     """
     overlap = word_overlap_ratio(target_words, transcript_words)
 
@@ -105,12 +110,8 @@ def estimate_pronunciation(target_words, transcript_words, confidence=None) -> i
 
 
 def repetition_penalty(words) -> int:
-    """
-    Detects repeated 3-word phrases as a proxy for disfluent, padded, or
-    circular speech — something pure words-per-minute can't catch, since a
-    rambling response can still hit a natural pace. Returns a 0-2 point
-    penalty to subtract from the fluency score.
-    """
+    """Detects repeated 3-word phrases as a proxy for disfluent, padded, or
+    circular speech — something pure words-per-minute can't catch."""
     if len(words) < 6:
         return 0
     trigrams = [tuple(words[i:i + 3]) for i in range(len(words) - 2)]
@@ -130,10 +131,37 @@ def repetition_penalty(words) -> int:
     return 0
 
 
-# ---------------- Read Aloud / Repeat Sentence ----------------
-# Both compare a spoken transcript against a fixed target text.
+def _get_pronunciation_and_fluency(target_text, transcript, transcript_words, duration_seconds, confidence, wav_base64):
+    """Tries real Azure phoneme-level scoring first, falls back to heuristic."""
+    if is_azure_configured() and wav_base64:
+        azure_result = score_pronunciation_via_azure(wav_base64, target_text)
+        if azure_result:
+            return {
+                "pronunciation": azure_result["pronunciation"],
+                "fluency": azure_result["fluency"],
+                "scoring_tier": "azure",
+                "phoneme_detail": {
+                    "recognized_text": azure_result.get("recognized_text"),
+                    "accuracy_raw": azure_result.get("accuracy_raw"),
+                    "completeness_raw": azure_result.get("completeness_raw"),
+                },
+            }
 
-def score_read_aloud_or_repeat(target_text: str, transcript: str, duration_seconds: float, confidence=None) -> dict:
+    # Fallback: heuristic
+    target_words = _tokenize(target_text)
+    fluency = max(0, estimate_fluency(len(transcript_words), duration_seconds) - repetition_penalty(transcript_words))
+    pronunciation = estimate_pronunciation(target_words, transcript_words, confidence)
+    return {
+        "pronunciation": pronunciation,
+        "fluency": fluency,
+        "scoring_tier": "heuristic",
+        "phoneme_detail": None,
+    }
+
+
+# ---------------- Read Aloud / Repeat Sentence ----------------
+
+def score_read_aloud_or_repeat(target_text: str, transcript: str, duration_seconds: float, confidence=None, wav_base64=None) -> dict:
     target_words = _tokenize(target_text)
     transcript_words = _tokenize(transcript)
 
@@ -157,31 +185,33 @@ def score_read_aloud_or_repeat(target_text: str, transcript: str, duration_secon
     ai_used = ai_result is not None
     content_score = blend(heuristic_content, ai_result["content"] if ai_result else None, max_score=3)
 
-    fluency_score = max(0, estimate_fluency(len(transcript_words), duration_seconds) - repetition_penalty(transcript_words))
-    pronunciation_score = estimate_pronunciation(target_words, transcript_words, confidence)
+    pf = _get_pronunciation_and_fluency(target_text, transcript, transcript_words, duration_seconds, confidence, wav_base64)
 
-    total = content_score + fluency_score + pronunciation_score
+    total = content_score + pf["fluency"] + pf["pronunciation"]
 
     return {
         "content": content_score, "content_max": 3,
-        "fluency": fluency_score, "fluency_max": 5,
-        "pronunciation": pronunciation_score, "pronunciation_max": 5,
+        "fluency": pf["fluency"], "fluency_max": 5,
+        "pronunciation": pf["pronunciation"], "pronunciation_max": 5,
         "total": total, "max_total": 13,
         "transcript": transcript,
         "word_match_ratio": round(overlap, 2),
         "sequence_similarity": round(order_similarity, 2),
         "ai_assisted": ai_used,
         "ai_reason": ai_result.get("reason") if ai_result else None,
+        "pronunciation_scoring_tier": pf["scoring_tier"],
+        "phoneme_detail": pf["phoneme_detail"],
         "notes": {
             "scoring_method": "AI + heuristic blend" if ai_used else "Heuristic only (no AI key configured, or AI call unavailable)",
-            "pronunciation_caveat": "Blends browser recognition confidence with word-level match — not true phonetic analysis." if confidence is not None else "Estimated from speech-recognition word match only, not true phonetic analysis (browser didn't report confidence).",
+            "pronunciation_caveat": (
+                "Real phoneme-level acoustic scoring." if pf["scoring_tier"] == "azure"
+                else "Estimated from speech-recognition word match, not true phonetic analysis (phoneme model not configured or unavailable)."
+            ),
         },
     }
 
 
 # ---------------- Answer Short Question ----------------
-# Short factual answer, scored 0-1 (correct/incorrect) per official rubric —
-# no fluency/pronunciation trait for this item type.
 
 def score_answer_short_question(acceptable_answers: list, transcript: str) -> dict:
     transcript_words = set(_tokenize(transcript))
@@ -201,28 +231,6 @@ def score_answer_short_question(acceptable_answers: list, transcript: str) -> di
     }
 
 
-# ---------------- Describe Image ----------------
-# Open-ended spoken response describing a chart/graph — no fixed target text,
-# so Content is scored against key_points (keyword coverage + optional AI
-# judgment, same pattern as Writing), while Fluency stays rate-based.
-# Pronunciation has no target text to compare against here, so it's
-# approximated from how many transcribed words are recognizable English
-# words at all — a weaker proxy than Read Aloud's word-overlap method,
-# flagged accordingly in the response.
-
-from app.scoring_writing import _spell as _dictionary
-
-
-def _recognizable_word_ratio(words):
-    if not words:
-        return 0.0
-    candidates = [w for w in words if w.isalpha() and len(w) > 2]
-    if not candidates:
-        return 0.0
-    unknown = _dictionary.unknown(candidates)
-    return 1 - (len(unknown) / len(candidates))
-
-
 CHART_TYPE_WORDS = {
     "bar": ["bar chart", "bar graph", "bar diagram"],
     "line": ["line chart", "line graph", "line diagram"],
@@ -231,10 +239,6 @@ CHART_TYPE_WORDS = {
 
 
 def _detect_chart_type_mismatch(transcript_lower: str, correct_chart_type: str) -> bool:
-    """Returns True if the speaker explicitly named a DIFFERENT chart type
-    than the one actually shown (e.g. said 'bar graph' for a pie chart) —
-    a factual error that keyword-overlap scoring alone would miss, since
-    'graph' still matches regardless of which chart type precedes it."""
     for chart_type, phrases in CHART_TYPE_WORDS.items():
         if chart_type == correct_chart_type:
             continue
@@ -243,7 +247,7 @@ def _detect_chart_type_mismatch(transcript_lower: str, correct_chart_type: str) 
     return False
 
 
-def score_describe_image(task_description: str, key_points: list, transcript: str, duration_seconds: float, chart_type: str = None, confidence=None) -> dict:
+def score_describe_image(task_description: str, key_points: list, transcript: str, duration_seconds: float, chart_type: str = None, confidence=None, wav_base64=None) -> dict:
     transcript_words = _tokenize(transcript)
     transcript_lower = transcript.lower()
 
@@ -256,8 +260,6 @@ def score_describe_image(task_description: str, key_points: list, transcript: st
     if len(transcript_words) < 5:
         heuristic_content = 0
     elif chart_mismatch:
-        # Naming the wrong chart type is a factual error about the prompt
-        # itself — cap content regardless of how much other vocabulary matches.
         heuristic_content = 1
     elif coverage >= 0.75:
         heuristic_content = 3
@@ -275,42 +277,32 @@ def score_describe_image(task_description: str, key_points: list, transcript: st
     if chart_mismatch:
         content_score = min(content_score, 1)
 
-    fluency_score = max(0, estimate_fluency(len(transcript_words), duration_seconds) - repetition_penalty(transcript_words))
+    # For Describe Image there's no fixed target sentence, so real phoneme
+    # scoring compares against the transcript itself (self-consistency
+    # check on how clearly the words were articulated) rather than a
+    # known target text.
+    pf = _get_pronunciation_and_fluency(transcript, transcript, transcript_words, duration_seconds, confidence, wav_base64)
 
-    if confidence is not None:
-        recognizable_ratio = _recognizable_word_ratio(transcript_words)
-        combined = (confidence * 0.6) + (recognizable_ratio * 0.4)
-    else:
-        combined = _recognizable_word_ratio(transcript_words)
-
-    if combined >= 0.9:
-        pronunciation_score = 5
-    elif combined >= 0.75:
-        pronunciation_score = 4
-    elif combined >= 0.55:
-        pronunciation_score = 3
-    elif combined >= 0.35:
-        pronunciation_score = 2
-    elif combined > 0:
-        pronunciation_score = 1
-    else:
-        pronunciation_score = 0
-
-    total = content_score + fluency_score + pronunciation_score
+    total = content_score + pf["fluency"] + pf["pronunciation"]
 
     return {
         "content": content_score, "content_max": 3,
-        "fluency": fluency_score, "fluency_max": 5,
-        "pronunciation": pronunciation_score, "pronunciation_max": 5,
+        "fluency": pf["fluency"], "fluency_max": 5,
+        "pronunciation": pf["pronunciation"], "pronunciation_max": 5,
         "total": total, "max_total": 13,
         "transcript": transcript,
         "coverage_ratio": round(coverage, 2),
         "chart_type_mismatch": bool(chart_mismatch),
         "ai_assisted": ai_used,
         "ai_reason": ai_result.get("reason") if ai_result else None,
+        "pronunciation_scoring_tier": pf["scoring_tier"],
+        "phoneme_detail": pf["phoneme_detail"],
         "notes": {
             "scoring_method": "AI + heuristic blend" if ai_used else "Heuristic only (no AI key configured, or AI call unavailable)",
-            "pronunciation_caveat": "Blends browser recognition confidence with recognizable-word ratio — not true phonetic analysis." if confidence is not None else "Estimated from how many transcribed words are recognizable English words — a weaker proxy since there's no target sentence to compare against.",
+            "pronunciation_caveat": (
+                "Real phoneme-level acoustic scoring." if pf["scoring_tier"] == "azure"
+                else "Estimated from recognizable-word ratio — a weaker proxy since there's no fixed target sentence."
+            ),
             **({"chart_type_warning": f"You referred to this as a different chart type than what's shown ({chart_type} chart) — this caps your Content score."} if chart_mismatch else {}),
         },
     }
