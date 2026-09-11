@@ -40,15 +40,21 @@ def _score_speaking(question: Question, user_answer: Dict[str, Any]) -> Dict[str
     transcript = user_answer.get("transcript", "")
     duration = user_answer.get("duration_seconds", 0)
     confidence = user_answer.get("confidence")
+    # 16kHz mono WAV, base64-encoded by the browser (converted client-side
+    # via the Web Audio API from whatever format MediaRecorder produced) —
+    # this is the exact format Azure's Pronunciation Assessment API
+    # requires. Optional: if browser-side conversion failed for any
+    # reason, this is None and scoring falls back to the heuristic tier.
+    wav_base64 = user_answer.get("wav_base64")
 
     if question.q_type in SPEAKING_TIMED_TYPES:
         target_text = question.passage or ""
-        result = score_read_aloud_or_repeat(target_text, transcript, duration, confidence=confidence)
+        result = score_read_aloud_or_repeat(target_text, transcript, duration, confidence=confidence, wav_base64=wav_base64)
     elif question.q_type in SPEAKING_IMAGE_TYPES:
         key_points = (question.content or {}).get("key_points", [])
         task_description = question.passage or "Describe the image in as much detail as you can."
         chart_type = (question.content or {}).get("chart_type")
-        result = score_describe_image(task_description, key_points, transcript, duration, chart_type=chart_type, confidence=confidence)
+        result = score_describe_image(task_description, key_points, transcript, duration, chart_type=chart_type, confidence=confidence, wav_base64=wav_base64)
     else:
         acceptable = (question.content or {}).get("acceptable_answers", [])
         result = score_answer_short_question(acceptable, transcript)
@@ -84,14 +90,18 @@ def submit_attempt(payload: AttemptSubmit, db: Session = Depends(get_db)):
         result = score_attempt(question.q_type, question.correct_answer, payload.user_answer)
         correct_answer_out = question.correct_answer
 
+    # Audio isn't stored in the attempt record — only the transcript,
+    # scores, and phoneme detail (small JSON), keeping the database lean.
+    breakdown_to_store = {k: v for k, v in result.get("breakdown", {}).items()}
+
     attempt = Attempt(
         question_id=question.id,
         user_id=payload.user_id,
-        user_answer=payload.user_answer,
+        user_answer={k: v for k, v in payload.user_answer.items() if k != "wav_base64"},
         score=result["score"],
         max_score=result["max_score"],
         accuracy=result["accuracy"],
-        breakdown=result.get("breakdown", {}),
+        breakdown=breakdown_to_store,
         time_taken_seconds=payload.time_taken_seconds,
     )
     db.add(attempt)
