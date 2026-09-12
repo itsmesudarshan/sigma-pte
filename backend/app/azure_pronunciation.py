@@ -96,10 +96,31 @@ def score_pronunciation_via_azure(wav_base64: str, reference_text: str) -> dict 
     except (KeyError, IndexError):
         return None
 
+    # Per-word error categorization — Azure flags each word as correctly
+    # pronounced ("None"), mispronounced, omitted (expected but not said),
+    # or inserted (said but not expected), when EnableMiscue is on. This
+    # is what powers the color-coded transcript shown after scoring,
+    # rather than just an overall number.
+    words_detail = []
+    for w in best.get("Words", []):
+        error_type = (w.get("PronunciationAssessment", {}) or {}).get("ErrorType", "None")
+        status = {
+            "None": "correct",
+            "Mispronunciation": "mispronunciation",
+            "Omission": "omission",
+            "Insertion": "insertion",
+        }.get(error_type, "correct")
+        words_detail.append({
+            "word": w.get("Word", ""),
+            "status": status,
+            "accuracy": (w.get("PronunciationAssessment", {}) or {}).get("AccuracyScore"),
+        })
+
     return {
         "pronunciation": _map_100_to_5(pronunciation_overall if pronunciation_overall is not None else accuracy),
         "fluency": _map_100_to_5(fluency),
         "accuracy_raw": accuracy,
         "completeness_raw": completeness,
         "recognized_text": best.get("Display") or best.get("Lexical"),
+        "words_detail": words_detail,
     }

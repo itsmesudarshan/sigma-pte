@@ -131,6 +131,26 @@ def repetition_penalty(words) -> int:
     return 0
 
 
+def _heuristic_word_detail(target_words, transcript_words):
+    """
+    Word-level categorization for the heuristic fallback tier — simpler
+    than Azure's true phonetic analysis, since this can only compare word
+    text, not pronunciation. Categorizes each transcript word as matching
+    a target word ("correct") or not ("extra"), and separately lists any
+    target words never said at all ("omission").
+    """
+    target_set = set(target_words)
+    words_detail = [
+        {"word": w, "status": "correct" if w in target_set else "extra", "accuracy": None}
+        for w in transcript_words
+    ]
+    transcript_set = set(transcript_words)
+    for tw in target_words:
+        if tw not in transcript_set:
+            words_detail.append({"word": tw, "status": "omission", "accuracy": None})
+    return words_detail
+
+
 def _get_pronunciation_and_fluency(target_text, transcript, transcript_words, duration_seconds, confidence, wav_base64):
     """Tries real Azure phoneme-level scoring first, falls back to heuristic."""
     if is_azure_configured() and wav_base64:
@@ -145,6 +165,7 @@ def _get_pronunciation_and_fluency(target_text, transcript, transcript_words, du
                     "accuracy_raw": azure_result.get("accuracy_raw"),
                     "completeness_raw": azure_result.get("completeness_raw"),
                 },
+                "words_detail": azure_result.get("words_detail", []),
             }
 
     # Fallback: heuristic
@@ -156,6 +177,7 @@ def _get_pronunciation_and_fluency(target_text, transcript, transcript_words, du
         "fluency": fluency,
         "scoring_tier": "heuristic",
         "phoneme_detail": None,
+        "words_detail": _heuristic_word_detail(target_words, transcript_words),
     }
 
 
@@ -201,6 +223,7 @@ def score_read_aloud_or_repeat(target_text: str, transcript: str, duration_secon
         "ai_reason": ai_result.get("reason") if ai_result else None,
         "pronunciation_scoring_tier": pf["scoring_tier"],
         "phoneme_detail": pf["phoneme_detail"],
+        "words_detail": pf.get("words_detail", []),
         "notes": {
             "scoring_method": "AI + heuristic blend" if ai_used else "Heuristic only (no AI key configured, or AI call unavailable)",
             "pronunciation_caveat": (
@@ -297,6 +320,7 @@ def score_describe_image(task_description: str, key_points: list, transcript: st
         "ai_reason": ai_result.get("reason") if ai_result else None,
         "pronunciation_scoring_tier": pf["scoring_tier"],
         "phoneme_detail": pf["phoneme_detail"],
+        "words_detail": pf.get("words_detail", []),
         "notes": {
             "scoring_method": "AI + heuristic blend" if ai_used else "Heuristic only (no AI key configured, or AI call unavailable)",
             "pronunciation_caveat": (
