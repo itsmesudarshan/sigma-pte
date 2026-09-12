@@ -2,6 +2,7 @@ import { useState } from 'react';
 import PrepCountdown from '../PrepCountdown';
 import ChartImage from '../ChartImage';
 import SpeechRecorder from '../SpeechRecorder';
+import ColoredTranscript from '../ColoredTranscript';
 
 export default function DescribeImage({ content, onChange, result }) {
   const [prepDone, setPrepDone] = useState(false);
@@ -25,6 +26,7 @@ export default function DescribeImage({ content, onChange, result }) {
 
       {result && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+          <ColoredTranscript wordsDetail={result.breakdown.words_detail} scoringTier={result.breakdown.pronunciation_scoring_tier} />
           <TraitBar label="Content" score={result.breakdown.content} max={result.breakdown.content_max} />
           <TraitBar label="Oral Fluency" score={result.breakdown.fluency} max={result.breakdown.fluency_max} />
           <TraitBar label="Pronunciation" score={result.breakdown.pronunciation} max={result.breakdown.pronunciation_max} />
