@@ -188,8 +188,8 @@ export default function SpeechRecorder({ onResult, disabled, autoStopSeconds = 3
         )}
       </div>
 
-      <div style={{ minHeight: 60, padding: 14, borderRadius: 'var(--radius-sm)', border: '1px solid var(--line)', background: 'var(--paper)', fontSize: 14, color: transcript ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-        {transcript || 'Your speech will be transcribed here as you talk...'}
+      <div style={{ minHeight: 24, padding: recording ? '4px 0' : 0, fontSize: 13, color: 'var(--text-muted)' }}>
+        {recording && 'Recording — your response will be shown after scoring.'}
       </div>
 
       {micError && (
