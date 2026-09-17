@@ -33,8 +33,10 @@ export function canSubmitAnswer(q_type, userAnswer) {
 export function renderQuestionComponent(question, userAnswer, onChange, result) {
   const { q_type, passage, content } = question;
   switch (q_type) {
-    case 'mcq_single': return <MCQSingle content={content} userAnswer={userAnswer} onChange={onChange} result={result} />;
-    case 'mcq_multi': return <MCQMulti content={content} userAnswer={userAnswer} onChange={onChange} result={result} />;
+    // Reading MCQ types: passage is REQUIRED here — this is the exact
+    // spot a prior regression dropped it, so don't remove this prop.
+    case 'mcq_single': return <MCQSingle passage={passage} content={content} userAnswer={userAnswer} onChange={onChange} result={result} />;
+    case 'mcq_multi': return <MCQMulti passage={passage} content={content} userAnswer={userAnswer} onChange={onChange} result={result} />;
     case 'fill_blanks': return <FillBlanks passage={passage} content={content} userAnswer={userAnswer} onChange={onChange} result={result} />;
     case 'rw_fill_blanks': return <RWFillBlanks passage={passage} content={content} userAnswer={userAnswer} onChange={onChange} result={result} />;
     case 'reorder': return <Reorder content={content} userAnswer={userAnswer} onChange={onChange} result={result} />;
